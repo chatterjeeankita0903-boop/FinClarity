@@ -48,7 +48,7 @@ interface AppState {
   updateTransaction: (id: string, updates: Partial<Transaction>) => void;
   ignoreTransaction: (id: string) => void;
   deleteTransaction: (id: string) => void;
-  splitTransaction: (id: string, splits: SplitMember[]) => void;
+  splitTransaction: (id: string, splits: SplitMember[], groupId?: string | null) => void;
   settleUp: (groupId: string, memberId: string) => void;
   addGroup: (g: Omit<Group, 'id' | 'createdAt'>) => void;
   deleteGroup: (id: string) => void;
