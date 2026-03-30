@@ -1,17 +1,18 @@
+import { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { TrendingUp, TrendingDown, ArrowUpRight, Wallet } from 'lucide-react';
-import { useTotalSpend, useCategoryBreakdown, usePaymentModeBreakdown, useActiveTransactions } from '@/store/useStore';
+import { ArrowUpRight, Wallet } from 'lucide-react';
+import { useStore, getTotalSpend, getCategoryBreakdown, getPaymentModeBreakdown, getActiveTransactions } from '@/store/useStore';
 import { BudgetBar } from '@/components/BudgetBar';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 
 const COLORS = ['#22c55e', '#f97316', '#3b82f6', '#ec4899', '#a855f7', '#eab308', '#14b8a6', '#f43f5e', '#6366f1', '#06b6d4', '#64748b'];
 
 const Dashboard = () => {
-  const totalSpend = useTotalSpend('2026-03');
-  const categoryData = useCategoryBreakdown('2026-03');
-  const paymentData = usePaymentModeBreakdown('2026-03');
-  const txns = useActiveTransactions();
-  const txnCount = txns.filter(t => t.date.startsWith('2026-03')).length;
+  const transactions = useStore(s => s.transactions);
+  const totalSpend = useMemo(() => getTotalSpend(transactions, '2026-03'), [transactions]);
+  const categoryData = useMemo(() => getCategoryBreakdown(transactions, '2026-03'), [transactions]);
+  const paymentData = useMemo(() => getPaymentModeBreakdown(transactions, '2026-03'), [transactions]);
+  const txnCount = useMemo(() => getActiveTransactions(transactions).filter(t => t.date.startsWith('2026-03')).length, [transactions]);
 
   const formatAmount = (n: number) => {
     if (n >= 100000) return `₹${(n / 100000).toFixed(1)}L`;
@@ -21,7 +22,6 @@ const Dashboard = () => {
 
   return (
     <div className="px-4 pt-14 safe-bottom space-y-4">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm text-muted-foreground">March 2026</p>
@@ -32,7 +32,6 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Total Spend Card */}
       <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="glass-card p-5 glow">
         <p className="text-sm text-muted-foreground mb-1">Total Spend</p>
         <div className="flex items-end justify-between">
@@ -44,10 +43,8 @@ const Dashboard = () => {
         </div>
       </motion.div>
 
-      {/* Budget */}
       <BudgetBar />
 
-      {/* Category Breakdown */}
       <div className="glass-card p-4">
         <h3 className="text-sm font-semibold text-foreground mb-3">By Category</h3>
         <div className="flex items-center gap-4">
@@ -74,7 +71,6 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Payment Mode */}
       <div className="glass-card p-4">
         <h3 className="text-sm font-semibold text-foreground mb-3">By Payment Mode</h3>
         <div className="space-y-2">

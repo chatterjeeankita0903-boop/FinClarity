@@ -132,27 +132,29 @@ export const useStore = create<AppState>()(
   )
 );
 
-// Selectors
-export const useActiveTransactions = () => useStore(s => s.transactions.filter(t => !t.isIgnored));
+// Pure helper functions — use with useMemo in components
+export function getActiveTransactions(transactions: Transaction[]) {
+  return transactions.filter(t => !t.isIgnored);
+}
 
-export const useTotalSpend = (month?: string) => useStore(s => {
-  const txns = s.transactions.filter(t => !t.isIgnored);
+export function getTotalSpend(transactions: Transaction[], month?: string) {
+  const txns = transactions.filter(t => !t.isIgnored);
   const filtered = month ? txns.filter(t => t.date.startsWith(month)) : txns;
   return filtered.reduce((sum, t) => sum + t.userShare, 0);
-});
+}
 
-export const useCategoryBreakdown = (month?: string) => useStore(s => {
-  const txns = s.transactions.filter(t => !t.isIgnored);
+export function getCategoryBreakdown(transactions: Transaction[], month?: string) {
+  const txns = transactions.filter(t => !t.isIgnored);
   const filtered = month ? txns.filter(t => t.date.startsWith(month)) : txns;
   const map: Record<string, number> = {};
   filtered.forEach(t => { map[t.category] = (map[t.category] || 0) + t.userShare; });
   return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
-});
+}
 
-export const usePaymentModeBreakdown = (month?: string) => useStore(s => {
-  const txns = s.transactions.filter(t => !t.isIgnored);
+export function getPaymentModeBreakdown(transactions: Transaction[], month?: string) {
+  const txns = transactions.filter(t => !t.isIgnored);
   const filtered = month ? txns.filter(t => t.date.startsWith(month)) : txns;
   const map: Record<string, number> = {};
   filtered.forEach(t => { map[t.paymentMode] = (map[t.paymentMode] || 0) + t.userShare; });
   return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
-});
+}

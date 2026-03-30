@@ -1,8 +1,10 @@
-import { useStore, useTotalSpend } from '@/store/useStore';
+import { useMemo } from 'react';
+import { useStore, getTotalSpend } from '@/store/useStore';
 
 export const BudgetBar = () => {
+  const transactions = useStore(s => s.transactions);
   const budget = useStore(s => s.budget);
-  const totalSpend = useTotalSpend('2026-03');
+  const totalSpend = useMemo(() => getTotalSpend(transactions, '2026-03'), [transactions]);
   const percentage = budget.overall > 0 ? Math.min((totalSpend / budget.overall) * 100, 100) : 0;
   const remaining = budget.overall - totalSpend;
 
