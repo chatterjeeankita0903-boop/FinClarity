@@ -1,0 +1,103 @@
+import { useState } from 'react';
+import { X, Plus, Trash2 } from 'lucide-react';
+import { Transaction, useStore } from '@/store/useStore';
+import { motion } from 'framer-motion';
+
+interface Props {
+  transaction: Transaction;
+  onClose: () => void;
+}
+
+export const SplitDialog = ({ transaction, onClose }: Props) => {
+  const { splitTransaction } = useStore();
+  const [members, setMembers] = useState(
+    transaction.splits.length > 0
+      ? transaction.splits.map(s => ({ name: s.name, share: s.share }))
+      : [{ name: '', share: 0 }]
+  );
+  const [mode, setMode] = useState<'equal' | 'custom'>('equal');
+
+  const totalPeople = members.filter(m => m.name).length + 1;
+  const equalShare = Math.round(transaction.amount / totalPeople);
+
+  const handleSplit = () => {
+    const validMembers = members.filter(m => m.name.trim());
+    if (validMembers.length === 0) return;
+
+    const splits = validMembers.map((m, i) => ({
+      id: `s-${Date.now()}-${i}`,
+      name: m.name,
+      share: mode === 'equal' ? equalShare : m.share,
+      settled: false,
+    }));
+
+    splitTransaction(transaction.id, splits);
+    onClose();
+  };
+
+  const otherTotal = mode === 'equal'
+    ? equalShare * members.filter(m => m.name).length
+    : members.reduce((s, m) => s + (m.share || 0), 0);
+  const yourShare = transaction.amount - otherTotal;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-background/60 backdrop-blur-sm" onClick={onClose}>
+      <motion.div
+        initial={{ y: '100%' }}
+        animate={{ y: 0 }}
+        exit={{ y: '100%' }}
+        className="w-full max-w-lg bg-card border-t border-border rounded-t-2xl p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-bold text-foreground">Split ₹{transaction.amount.toLocaleString('en-IN')}</h3>
+          <button onClick={onClose} className="text-muted-foreground"><X className="w-5 h-5" /></button>
+        </div>
+
+        <div className="flex gap-2 mb-4">
+          <button onClick={() => setMode('equal')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${mode === 'equal' ? 'gradient-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground'}`}>Equal</button>
+          <button onClick={() => setMode('custom')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${mode === 'custom' ? 'gradient-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground'}`}>Custom</button>
+        </div>
+
+        <div className="space-y-3 max-h-48 overflow-y-auto mb-4">
+          {members.map((m, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <input
+                value={m.name}
+                onChange={(e) => { const n = [...members]; n[i].name = e.target.value; setMembers(n); }}
+                placeholder="Name"
+                className="flex-1 bg-secondary rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none border border-border focus:border-primary"
+              />
+              {mode === 'custom' && (
+                <input
+                  type="number"
+                  value={m.share || ''}
+                  onChange={(e) => { const n = [...members]; n[i].share = Number(e.target.value); setMembers(n); }}
+                  placeholder="₹"
+                  className="w-24 bg-secondary rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none border border-border focus:border-primary"
+                />
+              )}
+              {mode === 'equal' && <span className="text-sm font-medium text-primary w-24 text-right">₹{equalShare.toLocaleString('en-IN')}</span>}
+              <button onClick={() => setMembers(members.filter((_, j) => j !== i))} className="text-muted-foreground hover:text-destructive"><Trash2 className="w-4 h-4" /></button>
+            </div>
+          ))}
+        </div>
+
+        <button onClick={() => setMembers([...members, { name: '', share: 0 }])} className="flex items-center gap-1 text-sm text-primary mb-4">
+          <Plus className="w-4 h-4" /> Add person
+        </button>
+
+        <div className="glass-elevated p-3 rounded-lg mb-4">
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">Your share</span>
+            <span className={`font-bold ${yourShare < 0 ? 'text-destructive' : 'text-primary'}`}>₹{yourShare.toLocaleString('en-IN')}</span>
+          </div>
+        </div>
+
+        <button onClick={handleSplit} disabled={yourShare < 0} className="w-full gradient-primary text-primary-foreground font-semibold py-3 rounded-xl disabled:opacity-50">
+          Split Expense
+        </button>
+      </motion.div>
+    </div>
+  );
+};
