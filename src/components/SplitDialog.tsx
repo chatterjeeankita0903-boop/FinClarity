@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Plus, Trash2 } from 'lucide-react';
+import { X, Plus, Trash2, Users } from 'lucide-react';
 import { Transaction, useStore } from '@/store/useStore';
 import { motion } from 'framer-motion';
 
@@ -9,7 +9,8 @@ interface Props {
 }
 
 export const SplitDialog = ({ transaction, onClose }: Props) => {
-  const { splitTransaction } = useStore();
+  const { splitTransaction, groups } = useStore();
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(transaction.groupId);
   const [members, setMembers] = useState(
     transaction.splits.length > 0
       ? transaction.splits.map(s => ({ name: s.name, share: s.share }))
@@ -19,6 +20,18 @@ export const SplitDialog = ({ transaction, onClose }: Props) => {
 
   const totalPeople = members.filter(m => m.name).length + 1;
   const equalShare = Math.round(transaction.amount / totalPeople);
+
+  const handleGroupSelect = (groupId: string) => {
+    if (groupId === '') {
+      setSelectedGroupId(null);
+      return;
+    }
+    setSelectedGroupId(groupId);
+    const group = groups.find(g => g.id === groupId);
+    if (group) {
+      setMembers(group.members.map(m => ({ name: m.name, share: 0 })));
+    }
+  };
 
   const handleSplit = () => {
     const validMembers = members.filter(m => m.name.trim());
@@ -31,7 +44,7 @@ export const SplitDialog = ({ transaction, onClose }: Props) => {
       settled: false,
     }));
 
-    splitTransaction(transaction.id, splits);
+    splitTransaction(transaction.id, splits, selectedGroupId);
     onClose();
   };
 
@@ -53,6 +66,39 @@ export const SplitDialog = ({ transaction, onClose }: Props) => {
           <h3 className="text-lg font-bold text-foreground">Split ₹{transaction.amount.toLocaleString('en-IN')}</h3>
           <button onClick={onClose} className="text-muted-foreground"><X className="w-5 h-5" /></button>
         </div>
+
+        {/* Group Selector */}
+        {groups.length > 0 && (
+          <div className="mb-4">
+            <p className="text-xs text-muted-foreground mb-2">Split with a group</p>
+            <div className="flex gap-2 flex-wrap">
+              <button
+                onClick={() => handleGroupSelect('')}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors border ${
+                  !selectedGroupId
+                    ? 'border-primary bg-primary/10 text-primary'
+                    : 'border-border bg-secondary text-secondary-foreground'
+                }`}
+              >
+                Custom
+              </button>
+              {groups.map(g => (
+                <button
+                  key={g.id}
+                  onClick={() => handleGroupSelect(g.id)}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors border ${
+                    selectedGroupId === g.id
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border bg-secondary text-secondary-foreground'
+                  }`}
+                >
+                  <Users className="w-3.5 h-3.5" />
+                  {g.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="flex gap-2 mb-4">
           <button onClick={() => setMode('equal')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${mode === 'equal' ? 'gradient-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground'}`}>Equal</button>

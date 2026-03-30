@@ -48,7 +48,7 @@ interface AppState {
   updateTransaction: (id: string, updates: Partial<Transaction>) => void;
   ignoreTransaction: (id: string) => void;
   deleteTransaction: (id: string) => void;
-  splitTransaction: (id: string, splits: SplitMember[]) => void;
+  splitTransaction: (id: string, splits: SplitMember[], groupId?: string | null) => void;
   settleUp: (groupId: string, memberId: string) => void;
   addGroup: (g: Omit<Group, 'id' | 'createdAt'>) => void;
   deleteGroup: (id: string) => void;
@@ -97,12 +97,12 @@ export const useStore = create<AppState>()(
         transactions: get().transactions.filter(t => t.id !== id)
       }),
 
-      splitTransaction: (id, splits) => {
+      splitTransaction: (id, splits, groupId) => {
         const totalOtherShares = splits.reduce((sum, s) => sum + s.share, 0);
         set({
           transactions: get().transactions.map(t => {
             if (t.id !== id) return t;
-            return { ...t, isSplit: true, splits, userShare: t.amount - totalOtherShares };
+            return { ...t, isSplit: true, splits, userShare: t.amount - totalOtherShares, groupId: groupId ?? t.groupId };
           })
         });
       },
