@@ -1,25 +1,27 @@
-import { useCategoryBreakdown, usePaymentModeBreakdown, useActiveTransactions, useStore } from '@/store/useStore';
+import { useMemo } from 'react';
+import { getCategoryBreakdown, getPaymentModeBreakdown, getActiveTransactions, useStore } from '@/store/useStore';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, PieChart, Pie, Cell } from 'recharts';
 
 const COLORS = ['#22c55e', '#f97316', '#3b82f6', '#ec4899', '#a855f7', '#eab308', '#14b8a6', '#f43f5e', '#6366f1', '#06b6d4'];
 
 const Insights = () => {
-  const categoryData = useCategoryBreakdown('2026-03');
-  const paymentData = usePaymentModeBreakdown('2026-03');
-  const txns = useActiveTransactions();
+  const transactions = useStore(s => s.transactions);
   const budget = useStore(s => s.budget);
+  const categoryData = useMemo(() => getCategoryBreakdown(transactions, '2026-03'), [transactions]);
+  const paymentData = useMemo(() => getPaymentModeBreakdown(transactions, '2026-03'), [transactions]);
+  const txns = useMemo(() => getActiveTransactions(transactions), [transactions]);
 
-  const topMerchants = (() => {
+  const topMerchants = useMemo(() => {
     const map: Record<string, number> = {};
     txns.filter(t => t.date.startsWith('2026-03')).forEach(t => { map[t.merchant] = (map[t.merchant] || 0) + t.userShare; });
     return Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([name, value]) => ({ name, value }));
-  })();
+  }, [txns]);
 
-  const categoryBudgetData = categoryData.map(c => ({
+  const categoryBudgetData = useMemo(() => categoryData.map(c => ({
     name: c.name,
     spent: c.value,
     budget: budget.categories[c.name as keyof typeof budget.categories] || 0,
-  }));
+  })), [categoryData, budget]);
 
   const formatAmount = (n: number) => `₹${n >= 1000 ? (n / 1000).toFixed(1) + 'K' : n}`;
 
@@ -27,7 +29,6 @@ const Insights = () => {
     <div className="px-4 pt-14 safe-bottom space-y-5">
       <h1 className="text-2xl font-bold text-foreground">Insights</h1>
 
-      {/* Top Merchants */}
       <div className="glass-card p-4">
         <h3 className="text-sm font-semibold text-foreground mb-3">Top Merchants</h3>
         <div className="h-40">
@@ -42,7 +43,6 @@ const Insights = () => {
         </div>
       </div>
 
-      {/* Category vs Budget */}
       <div className="glass-card p-4">
         <h3 className="text-sm font-semibold text-foreground mb-3">Category Budget Usage</h3>
         <div className="space-y-3">
@@ -66,7 +66,6 @@ const Insights = () => {
         </div>
       </div>
 
-      {/* Spending Pie */}
       <div className="glass-card p-4">
         <h3 className="text-sm font-semibold text-foreground mb-3">Spending Distribution</h3>
         <div className="h-48">
