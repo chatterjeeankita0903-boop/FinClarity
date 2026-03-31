@@ -127,22 +127,52 @@ const AddExpense = () => {
         <h1 className="text-2xl font-bold text-foreground">Add Expense</h1>
       </div>
 
+      {/* AI SMS Engine Link */}
+      <button
+        onClick={() => navigate('/sms-engine')}
+        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-primary/10 border border-primary/20 mb-5"
+      >
+        <MessageSquare className="w-5 h-5 text-primary" />
+        <div className="text-left flex-1">
+          <span className="text-sm font-semibold text-primary">AI SMS Engine</span>
+          <p className="text-[10px] text-muted-foreground">Auto-scan bank messages & add to ledger</p>
+        </div>
+        <span className="text-xs text-primary font-bold">→</span>
+      </button>
+
       {/* Input Mode Selector */}
-      <div className="grid grid-cols-2 gap-3 mb-6">
+      <div className="grid grid-cols-4 gap-2 mb-6">
         {[
-          { key: 'manual', icon: Keyboard, label: 'Manual Entry' },
-          { key: 'sms', icon: MessageSquare, label: 'Parse SMS' },
+          { key: 'manual', icon: Keyboard, label: 'Manual' },
+          { key: 'sms', icon: MessageSquare, label: 'Paste SMS' },
+          { key: 'camera', icon: Camera, label: 'Camera' },
+          { key: 'image', icon: Image, label: 'Upload' },
         ].map(({ key, icon: Icon, label }) => (
           <button
             key={key}
-            onClick={() => setMode(key as 'manual' | 'sms')}
-            className={`glass-card p-4 flex flex-col items-center gap-2 transition-all ${mode === key ? 'border-primary glow' : 'border-border/50'}`}
+            onClick={() => {
+              if (key === 'camera') { handleImageCapture('camera'); return; }
+              if (key === 'image') { handleImageCapture('gallery'); return; }
+              setMode(key as 'manual' | 'sms');
+            }}
+            className={`glass-card p-3 flex flex-col items-center gap-1.5 transition-all ${mode === key ? 'border-primary glow' : 'border-border/50'}`}
           >
-            <Icon className={`w-6 h-6 ${mode === key ? 'text-primary' : 'text-muted-foreground'}`} />
-            <span className={`text-xs font-medium ${mode === key ? 'text-primary' : 'text-muted-foreground'}`}>{label}</span>
+            <Icon className={`w-5 h-5 ${mode === key ? 'text-primary' : 'text-muted-foreground'}`} />
+            <span className={`text-[10px] font-medium ${mode === key ? 'text-primary' : 'text-muted-foreground'}`}>{label}</span>
           </button>
         ))}
       </div>
+
+      {/* Image Preview */}
+      {imagePreview && (
+        <div className="mb-4 rounded-xl overflow-hidden border border-border/50">
+          <img src={imagePreview} alt="Receipt" className="w-full max-h-48 object-cover" />
+          <div className="px-3 py-2 bg-secondary/50 flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+            <span className="text-xs text-muted-foreground">AI scanning receipt...</span>
+          </div>
+        </div>
+      )}
 
       {/* SMS Parser */}
       {mode === 'sms' && (

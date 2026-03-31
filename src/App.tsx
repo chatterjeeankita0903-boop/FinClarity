@@ -8,6 +8,7 @@ import Transactions from "./pages/Transactions";
 import AddExpense from "./pages/AddExpense";
 import Groups from "./pages/Groups";
 import Insights from "./pages/Insights";
+import SmsEngine from "./pages/SmsEngine";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
