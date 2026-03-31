@@ -24,7 +24,7 @@ const CATEGORY_EMOJI: Record<string, string> = {
   Entertainment: '🎬', Health: '💊', SIP: '📈', Travel: '✈️', Education: '📚', Other: '💰',
 };
 
-export const TransactionCard = ({ transaction: t }: { transaction: Transaction }) => {
+export const TransactionCard = ({ transaction: t, compact }: { transaction: Transaction; compact?: boolean }) => {
   const { ignoreTransaction, deleteTransaction } = useStore();
   const [showSplit, setShowSplit] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
