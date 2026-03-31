@@ -132,6 +132,7 @@ export const useStore = create<AppState>()(
       deleteGroup: (id) => set({ groups: get().groups.filter(g => g.id !== id) }),
 
       setBudget: (b) => set({ budget: b }),
+      updateSettings: (s) => set({ settings: { ...get().settings, ...s } }),
 
       isDuplicate: (amount, merchant, date) => {
         return get().transactions.some(t =>

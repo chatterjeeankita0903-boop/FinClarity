@@ -27,6 +27,7 @@ const App = () => (
             <Route path="/groups" element={<Groups />} />
             <Route path="/sms-engine" element={<SmsEngine />} />
             <Route path="/insights" element={<Insights />} />
+            <Route path="/settings" element={<Settings />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           <BottomNav />

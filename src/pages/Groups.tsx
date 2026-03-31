@@ -143,7 +143,7 @@ const Groups = () => {
                   </div>
                   <div className="min-w-0">
                     <h3 className="font-semibold text-foreground truncate">{g.name}</h3>
-                    <p className="text-[11px] text-muted-foreground truncate">{memberNames} + You</p>
+                    <p className="text-[11px] text-muted-foreground truncate">You, {memberNames}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
