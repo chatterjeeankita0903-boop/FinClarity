@@ -9,6 +9,7 @@ import AddExpense from "./pages/AddExpense";
 import Groups from "./pages/Groups";
 import Insights from "./pages/Insights";
 import SmsEngine from "./pages/SmsEngine";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
