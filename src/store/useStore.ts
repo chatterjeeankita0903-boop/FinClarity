@@ -40,10 +40,19 @@ export interface Budget {
   categories: Partial<Record<Category, number>>;
 }
 
+export interface AppSettings {
+  smsIntelligence: boolean;
+  aiCategorisation: boolean;
+  ocrReceiptScan: boolean;
+  budgetAlerts: boolean;
+  duplicateDetection: boolean;
+}
+
 interface AppState {
   transactions: Transaction[];
   groups: Group[];
   budget: Budget;
+  settings: AppSettings;
   addTransaction: (t: Omit<Transaction, 'id'>) => void;
   updateTransaction: (id: string, updates: Partial<Transaction>) => void;
   ignoreTransaction: (id: string) => void;
@@ -53,6 +62,7 @@ interface AppState {
   addGroup: (g: Omit<Group, 'id' | 'createdAt'>) => void;
   deleteGroup: (id: string) => void;
   setBudget: (b: Budget) => void;
+  updateSettings: (s: Partial<AppSettings>) => void;
   isDuplicate: (amount: number, merchant: string, date: string) => boolean;
 }
 
