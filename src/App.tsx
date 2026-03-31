@@ -24,6 +24,7 @@ const App = () => (
             <Route path="/transactions" element={<Transactions />} />
             <Route path="/add" element={<AddExpense />} />
             <Route path="/groups" element={<Groups />} />
+            <Route path="/sms-engine" element={<SmsEngine />} />
             <Route path="/insights" element={<Insights />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
