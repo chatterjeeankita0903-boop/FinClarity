@@ -40,10 +40,19 @@ export interface Budget {
   categories: Partial<Record<Category, number>>;
 }
 
+export interface AppSettings {
+  smsIntelligence: boolean;
+  aiCategorisation: boolean;
+  ocrReceiptScan: boolean;
+  budgetAlerts: boolean;
+  duplicateDetection: boolean;
+}
+
 interface AppState {
   transactions: Transaction[];
   groups: Group[];
   budget: Budget;
+  settings: AppSettings;
   addTransaction: (t: Omit<Transaction, 'id'>) => void;
   updateTransaction: (id: string, updates: Partial<Transaction>) => void;
   ignoreTransaction: (id: string) => void;
@@ -53,6 +62,7 @@ interface AppState {
   addGroup: (g: Omit<Group, 'id' | 'createdAt'>) => void;
   deleteGroup: (id: string) => void;
   setBudget: (b: Budget) => void;
+  updateSettings: (s: Partial<AppSettings>) => void;
   isDuplicate: (amount: number, merchant: string, date: string) => boolean;
 }
 
@@ -78,6 +88,7 @@ export const useStore = create<AppState>()(
         { id: 'g2', name: 'Trip Goa', members: [{ id: 'm3', name: 'Priya' }, { id: 'm4', name: 'Sneha' }], createdAt: '2026-03-15' },
       ],
       budget: { overall: 50000, categories: { Food: 8000, Transport: 5000, Shopping: 10000, Entertainment: 3000 } },
+      settings: { smsIntelligence: true, aiCategorisation: true, ocrReceiptScan: true, budgetAlerts: true, duplicateDetection: true },
 
       addTransaction: (t) => {
         const state = get();
@@ -121,6 +132,7 @@ export const useStore = create<AppState>()(
       deleteGroup: (id) => set({ groups: get().groups.filter(g => g.id !== id) }),
 
       setBudget: (b) => set({ budget: b }),
+      updateSettings: (s) => set({ settings: { ...get().settings, ...s } }),
 
       isDuplicate: (amount, merchant, date) => {
         return get().transactions.some(t =>

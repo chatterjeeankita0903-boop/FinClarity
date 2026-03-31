@@ -9,6 +9,7 @@ import AddExpense from "./pages/AddExpense";
 import Groups from "./pages/Groups";
 import Insights from "./pages/Insights";
 import SmsEngine from "./pages/SmsEngine";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,6 +27,7 @@ const App = () => (
             <Route path="/groups" element={<Groups />} />
             <Route path="/sms-engine" element={<SmsEngine />} />
             <Route path="/insights" element={<Insights />} />
+            <Route path="/settings" element={<Settings />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           <BottomNav />

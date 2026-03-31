@@ -24,7 +24,7 @@ const CATEGORY_EMOJI: Record<string, string> = {
   Entertainment: '🎬', Health: '💊', SIP: '📈', Travel: '✈️', Education: '📚', Other: '💰',
 };
 
-export const TransactionCard = ({ transaction: t }: { transaction: Transaction }) => {
+export const TransactionCard = ({ transaction: t, compact }: { transaction: Transaction; compact?: boolean }) => {
   const { ignoreTransaction, deleteTransaction } = useStore();
   const [showSplit, setShowSplit] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
@@ -38,8 +38,8 @@ export const TransactionCard = ({ transaction: t }: { transaction: Transaction }
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className={`glass-card p-4 ${t.isIgnored ? 'opacity-40' : ''}`}
-        onClick={() => setShowActions(!showActions)}
+        className={`glass-card ${compact ? 'p-3' : 'p-4'} ${t.isIgnored ? 'opacity-40' : ''}`}
+        onClick={() => !compact && setShowActions(!showActions)}
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
