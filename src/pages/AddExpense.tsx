@@ -16,8 +16,9 @@ const CATEGORY_EMOJI: Record<string, string> = {
 const AddExpense = () => {
   const navigate = useNavigate();
   const { addTransaction, isDuplicate } = useStore();
-  const [mode, setMode] = useState<'manual' | 'sms'>('manual');
+  const [mode, setMode] = useState<'manual' | 'sms' | 'camera' | 'image'>('manual');
   const [smsText, setSmsText] = useState('');
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [form, setForm] = useState({
     merchant: '',
     amount: '',
@@ -26,6 +27,36 @@ const AddExpense = () => {
     date: new Date().toISOString().split('T')[0],
     note: '',
   });
+
+  const handleImageCapture = (source: 'camera' | 'gallery') => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    if (source === 'camera') input.capture = 'environment';
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          setImagePreview(ev.target?.result as string);
+          // Simulate AI OCR parsing
+          setTimeout(() => {
+            setForm({
+              ...form,
+              merchant: 'Scanned Receipt',
+              amount: '1250',
+              category: 'Shopping',
+              paymentMode: 'Cash',
+            });
+            setMode('manual');
+            toast.success('🧠 AI scanned receipt — ₹1,250 detected');
+          }, 1500);
+        };
+        reader.readAsDataURL(file);
+      }
+    };
+    input.click();
+  };
 
   const parseSms = () => {
     const amountMatch = smsText.match(/(?:Rs\.?|INR|₹)\s*([\d,]+(?:\.\d{2})?)/i);
