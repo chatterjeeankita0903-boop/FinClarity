@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Camera, FileText, Keyboard, MessageSquare, ArrowLeft } from 'lucide-react';
+import { Camera, FileText, Keyboard, MessageSquare, ArrowLeft, Image, Upload } from 'lucide-react';
 import { Category, PaymentMode, useStore, TransactionSource } from '@/store/useStore';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
