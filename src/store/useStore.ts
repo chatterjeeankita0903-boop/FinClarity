@@ -69,16 +69,18 @@ interface AppState {
 
 const generateId = () => Math.random().toString(36).substring(2, 15);
 
+const d = (daysAgo: number) => format(subDays(new Date(), daysAgo), 'yyyy-MM-dd');
+
 const SAMPLE_TRANSACTIONS: Transaction[] = [
-  { id: '0', amount: 75000, date: '2026-03-01', merchant: 'Salary Credit - TCS', category: 'Other', paymentMode: 'Net Banking', source: 'sms', isSplit: false, userShare: 75000, isIgnored: false, groupId: null, splits: [], note: 'Monthly salary credited' },
-  { id: '1', amount: 450, date: '2026-03-30', merchant: 'Swiggy', category: 'Food', paymentMode: 'UPI', source: 'sms', isSplit: false, userShare: 450, isIgnored: false, groupId: null, splits: [] },
-  { id: '2', amount: 1200, date: '2026-03-29', merchant: 'Amazon', category: 'Shopping', paymentMode: 'Credit Card', source: 'sms', isSplit: false, userShare: 1200, isIgnored: false, groupId: null, splits: [] },
-  { id: '3', amount: 2500, date: '2026-03-28', merchant: 'Uber', category: 'Transport', paymentMode: 'UPI', source: 'sms', isSplit: true, userShare: 1250, isIgnored: false, groupId: null, splits: [{ id: 's1', name: 'Rahul', share: 1250, settled: false }] },
-  { id: '4', amount: 15000, date: '2026-03-27', merchant: 'Landlord', category: 'Rent', paymentMode: 'Net Banking', source: 'manual', isSplit: true, userShare: 7500, isIgnored: false, groupId: null, splits: [{ id: 's2', name: 'Amit', share: 7500, settled: false }] },
-  { id: '5', amount: 599, date: '2026-03-26', merchant: 'Netflix', category: 'Entertainment', paymentMode: 'Credit Card', source: 'sms', isSplit: false, userShare: 599, isIgnored: false, groupId: null, splits: [] },
-  { id: '6', amount: 3200, date: '2026-03-25', merchant: 'Apollo Pharmacy', category: 'Health', paymentMode: 'Debit Card', source: 'sms', isSplit: false, userShare: 3200, isIgnored: false, groupId: null, splits: [] },
-  { id: '7', amount: 800, date: '2026-03-24', merchant: 'Zomato', category: 'Food', paymentMode: 'UPI', source: 'sms', isSplit: false, userShare: 800, isIgnored: false, groupId: null, splits: [] },
-  { id: '8', amount: 5000, date: '2026-03-23', merchant: 'Zerodha Coin', category: 'SIP', paymentMode: 'Net Banking', source: 'sms', isSplit: false, userShare: 5000, isIgnored: false, groupId: null, splits: [] },
+  { id: '0', amount: 75000, date: d(28), merchant: 'Salary Credit - TCS', category: 'Other', paymentMode: 'Net Banking', source: 'sms', isSplit: false, userShare: 75000, isIgnored: false, groupId: null, splits: [], note: 'Monthly salary credited' },
+  { id: '1', amount: 450, date: d(0), merchant: 'Swiggy', category: 'Food', paymentMode: 'UPI', source: 'sms', isSplit: false, userShare: 450, isIgnored: false, groupId: null, splits: [] },
+  { id: '2', amount: 1200, date: d(1), merchant: 'Amazon', category: 'Shopping', paymentMode: 'Credit Card', source: 'sms', isSplit: false, userShare: 1200, isIgnored: false, groupId: null, splits: [] },
+  { id: '3', amount: 2500, date: d(2), merchant: 'Uber', category: 'Transport', paymentMode: 'UPI', source: 'sms', isSplit: true, userShare: 1250, isIgnored: false, groupId: null, splits: [{ id: 's1', name: 'Rahul', share: 1250, settled: false }] },
+  { id: '4', amount: 15000, date: d(3), merchant: 'Landlord', category: 'Rent', paymentMode: 'Net Banking', source: 'manual', isSplit: true, userShare: 7500, isIgnored: false, groupId: null, splits: [{ id: 's2', name: 'Amit', share: 7500, settled: false }] },
+  { id: '5', amount: 599, date: d(4), merchant: 'Netflix', category: 'Entertainment', paymentMode: 'Credit Card', source: 'sms', isSplit: false, userShare: 599, isIgnored: false, groupId: null, splits: [] },
+  { id: '6', amount: 3200, date: d(5), merchant: 'Apollo Pharmacy', category: 'Health', paymentMode: 'Debit Card', source: 'sms', isSplit: false, userShare: 3200, isIgnored: false, groupId: null, splits: [] },
+  { id: '7', amount: 800, date: d(6), merchant: 'Zomato', category: 'Food', paymentMode: 'UPI', source: 'sms', isSplit: false, userShare: 800, isIgnored: false, groupId: null, splits: [] },
+  { id: '8', amount: 5000, date: d(7), merchant: 'Zerodha Coin', category: 'SIP', paymentMode: 'Net Banking', source: 'sms', isSplit: false, userShare: 5000, isIgnored: false, groupId: null, splits: [] },
 ];
 
 export const useStore = create<AppState>()(
