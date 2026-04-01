@@ -1,27 +1,61 @@
 import { useMemo, useState } from 'react';
 import { getCategoryBreakdown, getPaymentModeBreakdown, getActiveTransactions, getTotalSpend, useStore } from '@/store/useStore';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, PieChart, Pie, Cell, LineChart, Line, CartesianGrid } from 'recharts';
-import { Brain, TrendingUp, TrendingDown, Lightbulb, CreditCard } from 'lucide-react';
+import { Brain, TrendingUp, TrendingDown, Lightbulb, CreditCard, CalendarDays, Users, Filter } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { getCurrentMonth, getRecentMonths, getShortMonthLabel, getMonthLabel, getPreviousMonth } from '@/lib/dateUtils';
 
 const COLORS = ['#22c55e', '#f97316', '#3b82f6', '#ec4899', '#a855f7', '#eab308', '#14b8a6', '#f43f5e', '#6366f1', '#06b6d4'];
-const MONTHS = ['2026-01', '2026-02', '2026-03'];
-const MONTH_LABELS: Record<string, string> = { '2026-01': 'Jan', '2026-02': 'Feb', '2026-03': 'Mar' };
 
 const Insights = () => {
   const transactions = useStore(s => s.transactions);
   const budget = useStore(s => s.budget);
+  const groups = useStore(s => s.groups);
   const [activeTab, setActiveTab] = useState<'overview' | 'modes' | 'ai'>('overview');
 
-  const categoryData = useMemo(() => getCategoryBreakdown(transactions, '2026-03'), [transactions]);
-  const paymentData = useMemo(() => getPaymentModeBreakdown(transactions, '2026-03'), [transactions]);
-  const txns = useMemo(() => getActiveTransactions(transactions), [transactions]);
+  const recentMonths = useMemo(() => getRecentMonths(6), []);
+  const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth());
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [selectedGroup, setSelectedGroup] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Filter transactions by date range, group, and month
+  const filteredTxns = useMemo(() => {
+    let txns = getActiveTransactions(transactions);
+    if (selectedGroup) {
+      txns = txns.filter(t => t.groupId === selectedGroup);
+    }
+    if (dateFrom) {
+      txns = txns.filter(t => t.date >= dateFrom);
+    }
+    if (dateTo) {
+      txns = txns.filter(t => t.date <= dateTo);
+    }
+    // If date range is set, ignore month filter
+    if (!dateFrom && !dateTo) {
+      txns = txns.filter(t => t.date.startsWith(selectedMonth));
+    }
+    return txns;
+  }, [transactions, selectedMonth, dateFrom, dateTo, selectedGroup]);
+
+  const totalSpend = useMemo(() => filteredTxns.reduce((s, t) => s + t.userShare, 0), [filteredTxns]);
+  const categoryData = useMemo(() => {
+    const map: Record<string, number> = {};
+    filteredTxns.forEach(t => { map[t.category] = (map[t.category] || 0) + t.userShare; });
+    return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+  }, [filteredTxns]);
+  const paymentData = useMemo(() => {
+    const map: Record<string, number> = {};
+    filteredTxns.forEach(t => { map[t.paymentMode] = (map[t.paymentMode] || 0) + t.userShare; });
+    return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+  }, [filteredTxns]);
 
   const topMerchants = useMemo(() => {
     const map: Record<string, number> = {};
-    txns.filter(t => t.date.startsWith('2026-03')).forEach(t => { map[t.merchant] = (map[t.merchant] || 0) + t.userShare; });
+    filteredTxns.forEach(t => { map[t.merchant] = (map[t.merchant] || 0) + t.userShare; });
     return Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([name, value]) => ({ name, value }));
-  }, [txns]);
+  }, [filteredTxns]);
 
   const categoryBudgetData = useMemo(() => categoryData.map(c => ({
     name: c.name,
@@ -31,53 +65,45 @@ const Insights = () => {
 
   // Month-on-Month data
   const momData = useMemo(() => {
-    return MONTHS.map(m => ({
-      month: MONTH_LABELS[m] || m,
+    return recentMonths.map(m => ({
+      month: getShortMonthLabel(m),
       spend: getTotalSpend(transactions, m),
     }));
-  }, [transactions]);
+  }, [transactions, recentMonths]);
 
+  const prevMonth = getPreviousMonth();
   const momChange = useMemo(() => {
-    const curr = getTotalSpend(transactions, '2026-03');
-    const prev = getTotalSpend(transactions, '2026-02');
+    const curr = getTotalSpend(transactions, selectedMonth);
+    const prev = getTotalSpend(transactions, prevMonth);
     if (prev === 0) return null;
     return ((curr - prev) / prev * 100).toFixed(0);
-  }, [transactions]);
-
-  // Payment mode pie data
-  const paymentPieData = useMemo(() => paymentData, [paymentData]);
+  }, [transactions, selectedMonth, prevMonth]);
 
   // AI Insights
   const aiInsights = useMemo(() => {
     const insights: { icon: typeof TrendingUp; text: string; type: 'tip' | 'warning' | 'positive' }[] = [];
-    const totalSpend = getTotalSpend(transactions, '2026-03');
 
-    // Top category analysis
     if (categoryData.length > 0) {
       const top = categoryData[0];
       const pct = totalSpend > 0 ? ((top.value / totalSpend) * 100).toFixed(0) : '0';
       insights.push({ icon: TrendingUp, text: `${top.name} is your top spend at ${pct}% (₹${top.value.toLocaleString('en-IN')}). Consider setting a tighter budget.`, type: 'tip' });
     }
 
-    // Budget warnings
     const budgetUsage = budget.overall > 0 ? (totalSpend / budget.overall) * 100 : 0;
     if (budgetUsage > 80) {
-      insights.push({ icon: TrendingDown, text: `You've used ${budgetUsage.toFixed(0)}% of your monthly budget with days remaining. Consider pausing discretionary spending.`, type: 'warning' });
+      insights.push({ icon: TrendingDown, text: `You've used ${budgetUsage.toFixed(0)}% of your monthly budget. Consider pausing discretionary spending.`, type: 'warning' });
     }
 
-    // SIP detection
-    const sipTxn = txns.find(t => t.category === 'SIP' && t.date.startsWith('2026-03'));
+    const sipTxn = filteredTxns.find(t => t.category === 'SIP');
     if (sipTxn) {
-      insights.push({ icon: Lightbulb, text: `Great job! Your SIP of ₹${sipTxn.userShare.toLocaleString('en-IN')} is active this month. Consistency builds wealth.`, type: 'positive' });
+      insights.push({ icon: Lightbulb, text: `Great job! Your SIP of ₹${sipTxn.userShare.toLocaleString('en-IN')} is active. Consistency builds wealth.`, type: 'positive' });
     }
 
-    // Split savings
-    const splitSavings = txns.filter(t => t.isSplit && t.date.startsWith('2026-03')).reduce((s, t) => s + (t.amount - t.userShare), 0);
+    const splitSavings = filteredTxns.filter(t => t.isSplit).reduce((s, t) => s + (t.amount - t.userShare), 0);
     if (splitSavings > 0) {
-      insights.push({ icon: Lightbulb, text: `You saved ₹${splitSavings.toLocaleString('en-IN')} this month by splitting expenses. Keep sharing costs!`, type: 'positive' });
+      insights.push({ icon: Lightbulb, text: `You saved ₹${splitSavings.toLocaleString('en-IN')} by splitting expenses. Keep sharing costs!`, type: 'positive' });
     }
 
-    // Payment mode insight
     if (paymentData.length > 0) {
       const topMode = paymentData[0];
       insights.push({ icon: CreditCard, text: `${topMode.name} is your most used payment mode (₹${topMode.value.toLocaleString('en-IN')}). Track rewards if using credit cards.`, type: 'tip' });
@@ -88,7 +114,7 @@ const Insights = () => {
     }
 
     return insights;
-  }, [transactions, categoryData, budget, txns, paymentData, momChange]);
+  }, [filteredTxns, categoryData, budget, paymentData, momChange, totalSpend]);
 
   const formatAmount = (n: number) => `₹${n >= 1000 ? (n / 1000).toFixed(1) + 'K' : n}`;
 
@@ -109,9 +135,59 @@ const Insights = () => {
     positive: 'text-primary',
   };
 
+  const hasDateFilter = !!(dateFrom || dateTo);
+
   return (
     <div className="px-4 pt-14 safe-bottom space-y-5">
-      <h1 className="text-2xl font-bold text-foreground">Insights</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-foreground">Insights</h1>
+        <button onClick={() => setShowFilters(!showFilters)} className={`p-2 rounded-xl transition-colors ${showFilters ? 'bg-primary/10 text-primary' : 'bg-secondary text-muted-foreground'}`}>
+          <Filter className="w-5 h-5" />
+        </button>
+      </div>
+
+      {/* Month Pills */}
+      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+        {recentMonths.map(m => (
+          <button
+            key={m}
+            onClick={() => { setSelectedMonth(m); setDateFrom(''); setDateTo(''); }}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border transition-colors ${
+              selectedMonth === m && !hasDateFilter
+                ? 'border-primary bg-primary/10 text-primary'
+                : 'border-border bg-secondary text-muted-foreground'
+            }`}
+          >
+            {getShortMonthLabel(m)}
+          </button>
+        ))}
+      </div>
+
+      {/* Advanced Filters */}
+      {showFilters && (
+        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} className="glass-card p-4 space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block flex items-center gap-1"><CalendarDays className="w-3 h-3" /> From</label>
+              <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-full bg-secondary rounded-lg px-3 py-2 text-xs text-foreground outline-none border border-border focus:border-primary" />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block flex items-center gap-1"><CalendarDays className="w-3 h-3" /> To</label>
+              <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-full bg-secondary rounded-lg px-3 py-2 text-xs text-foreground outline-none border border-border focus:border-primary" />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block flex items-center gap-1"><Users className="w-3 h-3" /> Group</label>
+            <select value={selectedGroup} onChange={(e) => setSelectedGroup(e.target.value)} className="w-full bg-secondary rounded-lg px-3 py-2 text-xs text-foreground outline-none border border-border focus:border-primary">
+              <option value="">All Groups</option>
+              {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+            </select>
+          </div>
+          {(hasDateFilter || selectedGroup) && (
+            <button onClick={() => { setDateFrom(''); setDateTo(''); setSelectedGroup(''); }} className="text-xs text-destructive font-medium">Clear filters</button>
+          )}
+        </motion.div>
+      )}
 
       {/* Tabs */}
       <div className="flex gap-2">
@@ -130,6 +206,15 @@ const Insights = () => {
         ))}
       </div>
 
+      {/* Period Label */}
+      <p className="text-xs text-muted-foreground">
+        {hasDateFilter
+          ? `${dateFrom || '...'} → ${dateTo || '...'}`
+          : getMonthLabel(selectedMonth)}
+        {selectedGroup ? ` · ${groups.find(g => g.id === selectedGroup)?.name}` : ''}
+        {` · ${filteredTxns.length} txns · ${formatAmount(totalSpend)}`}
+      </p>
+
       {activeTab === 'overview' && (
         <>
           {/* Month-on-Month */}
@@ -139,7 +224,7 @@ const Insights = () => {
               {momChange && (
                 <span className={`text-xs font-bold flex items-center gap-1 ${Number(momChange) > 0 ? 'text-destructive' : 'text-primary'}`}>
                   {Number(momChange) > 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
-                  {momChange}% vs Feb
+                  {momChange}% vs prev
                 </span>
               )}
             </div>
@@ -220,8 +305,8 @@ const Insights = () => {
             <div className="h-48">
               <ResponsiveContainer>
                 <PieChart>
-                  <Pie data={paymentPieData} cx="50%" cy="50%" outerRadius={80} innerRadius={40} paddingAngle={3} dataKey="value" stroke="none" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
-                    {paymentPieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                  <Pie data={paymentData} cx="50%" cy="50%" outerRadius={80} innerRadius={40} paddingAngle={3} dataKey="value" stroke="none" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
+                    {paymentData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                   </Pie>
                   <Tooltip formatter={(v: number) => formatAmount(v)} contentStyle={{ background: 'hsl(220 18% 10%)', border: '1px solid hsl(220 14% 16%)', borderRadius: '8px', fontSize: '12px' }} />
                 </PieChart>
@@ -233,8 +318,7 @@ const Insights = () => {
           <div className="glass-card p-4">
             <h3 className="text-sm font-semibold text-foreground mb-3">Spend by Mode</h3>
             <div className="space-y-3">
-              {paymentPieData.map((item, i) => {
-                const totalSpend = paymentPieData.reduce((s, p) => s + p.value, 0);
+              {paymentData.map((item, i) => {
                 const pct = totalSpend > 0 ? (item.value / totalSpend) * 100 : 0;
                 return (
                   <div key={item.name}>

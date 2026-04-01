@@ -8,6 +8,7 @@ import { TransactionCard } from '@/components/TransactionCard';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
+import { getCurrentMonth, getCurrentMonthLabel, getPreviousMonth } from '@/lib/dateUtils';
 
 const COLORS = ['#22c55e', '#f97316', '#3b82f6', '#ec4899', '#a855f7', '#eab308', '#14b8a6', '#f43f5e', '#6366f1', '#06b6d4', '#64748b'];
 
@@ -16,11 +17,14 @@ const Dashboard = () => {
   const transactions = useStore(s => s.transactions);
   const budget = useStore(s => s.budget);
   const settings = useStore(s => s.settings);
-  const totalSpend = useMemo(() => getTotalSpend(transactions, '2026-03'), [transactions]);
-  const categoryData = useMemo(() => getCategoryBreakdown(transactions, '2026-03'), [transactions]);
-  const paymentData = useMemo(() => getPaymentModeBreakdown(transactions, '2026-03'), [transactions]);
+  const currentMonth = getCurrentMonth();
+  const prevMonth = getPreviousMonth();
+  const totalSpend = useMemo(() => getTotalSpend(transactions, currentMonth), [transactions, currentMonth]);
+  const totalSpendAllTime = useMemo(() => getTotalSpend(transactions), [transactions]);
+  const categoryData = useMemo(() => getCategoryBreakdown(transactions, currentMonth), [transactions, currentMonth]);
+  const paymentData = useMemo(() => getPaymentModeBreakdown(transactions, currentMonth), [transactions, currentMonth]);
   const txns = useMemo(() => getActiveTransactions(transactions), [transactions]);
-  const txnCount = useMemo(() => txns.filter(t => t.date.startsWith('2026-03')).length, [txns]);
+  const txnCount = useMemo(() => txns.filter(t => t.date.startsWith(currentMonth)).length, [txns, currentMonth]);
   const recentTxns = useMemo(() => txns.slice(0, 5), [txns]);
   const [showScoreInfo, setShowScoreInfo] = useState(false);
 
@@ -35,16 +39,16 @@ const Dashboard = () => {
     const topCat = categoryData[0];
     if (topCat && totalSpend > 0 && topCat.value / totalSpend > 0.5) score -= 10;
 
-    const hasSIP = txns.some(t => t.category === 'SIP' && t.date.startsWith('2026-03'));
+    const hasSIP = txns.some(t => t.category === 'SIP' && t.date.startsWith(currentMonth));
     if (hasSIP) score += 5;
 
-    const splitTxns = txns.filter(t => t.isSplit && t.date.startsWith('2026-03'));
+    const splitTxns = txns.filter(t => t.isSplit && t.date.startsWith(currentMonth));
     if (splitTxns.length > 0) score += 5;
 
     if (txnCount === 0) score -= 20;
 
     return Math.max(0, Math.min(100, score));
-  }, [totalSpend, budget, categoryData, txns, txnCount]);
+  }, [totalSpend, budget, categoryData, txns, txnCount, currentMonth]);
 
   const scoreColor = healthScore >= 75 ? 'text-primary' : healthScore >= 50 ? 'text-accent' : 'text-destructive';
   const scoreLabel = healthScore >= 75 ? 'Excellent' : healthScore >= 50 ? 'Good' : 'Needs Attention';
@@ -60,7 +64,7 @@ const Dashboard = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm text-muted-foreground">March 2026</p>
+          <p className="text-sm text-muted-foreground">{getCurrentMonthLabel()}</p>
           <h1 className="text-2xl font-bold text-foreground">FinClarity</h1>
         </div>
         <div className="flex items-center gap-2">
@@ -71,17 +75,22 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Total Spend Card */}
-      <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="glass-card p-5 glow">
-        <p className="text-sm text-muted-foreground mb-1">Total Spend</p>
-        <div className="flex items-end justify-between">
-          <h2 className="text-3xl font-extrabold text-gradient">{formatAmount(totalSpend)}</h2>
-          <div className="flex items-center gap-1 text-primary text-sm font-medium">
-            <ArrowUpRight className="w-4 h-4" />
+      {/* Total Spend Cards */}
+      <div className="grid grid-cols-2 gap-3">
+        <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="glass-card p-4 glow">
+          <p className="text-xs text-muted-foreground mb-1">This Month</p>
+          <h2 className="text-2xl font-extrabold text-gradient">{formatAmount(totalSpend)}</h2>
+          <div className="flex items-center gap-1 text-primary text-xs font-medium mt-1">
+            <ArrowUpRight className="w-3 h-3" />
             {txnCount} txns
           </div>
-        </div>
-      </motion.div>
+        </motion.div>
+        <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.05 }} className="glass-card p-4">
+          <p className="text-xs text-muted-foreground mb-1">Total Spend</p>
+          <h2 className="text-2xl font-extrabold text-foreground">{formatAmount(totalSpendAllTime)}</h2>
+          <p className="text-xs text-muted-foreground mt-1">All time</p>
+        </motion.div>
+      </div>
 
       {/* Financial Health Score */}
       <div className="glass-card p-4 relative">
