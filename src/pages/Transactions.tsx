@@ -3,24 +3,21 @@ import { Search, X } from 'lucide-react';
 import { useStore, Category, PaymentMode } from '@/store/useStore';
 import { TransactionCard } from '@/components/TransactionCard';
 import { motion, AnimatePresence } from 'framer-motion';
+import { getRecentMonths, getShortMonthLabel, getCurrentMonth } from '@/lib/dateUtils';
 
 const CATEGORIES: Category[] = ['Food', 'Transport', 'Shopping', 'Bills', 'Rent', 'Entertainment', 'Health', 'SIP', 'Travel', 'Education', 'Other'];
 const PAYMENT_MODES: PaymentMode[] = ['UPI', 'Credit Card', 'Debit Card', 'Cash', 'Net Banking'];
-const PAYMENT_ICONS: Record<string, string> = { 'UPI': '📱', 'Credit Card': '💳', 'Debit Card': '💳', 'Cash': '💵', 'Net Banking': '🏦', 'NEFT': '🏦' };
-const MONTHS = [
-  { key: '', label: 'All' },
-  { key: '2026-01', label: 'Jan' },
-  { key: '2026-02', label: 'Feb' },
-  { key: '2026-03', label: 'Mar' },
-  { key: '2026-04', label: 'Apr' },
-];
+const PAYMENT_ICONS: Record<string, string> = { 'UPI': '📱', 'Credit Card': '💳', 'Debit Card': '💳', 'Cash': '💵', 'Net Banking': '🏦' };
 
 const Transactions = () => {
   const transactions = useStore(s => s.transactions);
+  const recentMonths = useMemo(() => getRecentMonths(6), []);
+  const monthOptions = [{ key: '', label: 'All' }, ...recentMonths.map(m => ({ key: m, label: getShortMonthLabel(m) }))];
+
   const [search, setSearch] = useState('');
   const [selectedMode, setSelectedMode] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
-  const [selectedMonth, setSelectedMonth] = useState('2026-03');
+  const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth());
   const [showIgnored, setShowIgnored] = useState(false);
 
   const filtered = useMemo(() => {
@@ -105,7 +102,7 @@ const Transactions = () => {
 
       {/* Month Tabs */}
       <div className="flex gap-2 overflow-x-auto pb-3 mb-3 scrollbar-hide">
-        {MONTHS.map(m => (
+        {monthOptions.map(m => (
           <button
             key={m.key}
             onClick={() => setSelectedMonth(selectedMonth === m.key ? '' : m.key)}
