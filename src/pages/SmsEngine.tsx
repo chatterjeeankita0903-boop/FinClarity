@@ -151,10 +151,18 @@ const SmsEngine = () => {
         </div>
       </div>
 
+      {/* Auto-add notice */}
+      <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl bg-accent/10 border border-accent/20 mb-4 mt-4">
+        <AlertTriangle className="w-4 h-4 text-accent mt-0.5 shrink-0" />
+        <p className="text-[11px] text-muted-foreground leading-relaxed">
+          If transactions are not reviewed by you within <span className="font-bold text-accent">10 minutes</span>, they will be <span className="font-semibold text-foreground">automatically added</span> to your ledger as credit or debit transactions.
+        </p>
+      </div>
+
       {/* Scanning indicator */}
       <button
         onClick={handleScan}
-        className="w-full flex items-center gap-2 px-4 py-3 rounded-xl bg-primary/10 border border-primary/20 mb-6 mt-4"
+        className="w-full flex items-center gap-2 px-4 py-3 rounded-xl bg-primary/10 border border-primary/20 mb-6"
       >
         <Scan className={`w-4 h-4 text-primary ${scanning ? 'animate-pulse' : ''}`} />
         <span className="text-sm text-primary font-medium">

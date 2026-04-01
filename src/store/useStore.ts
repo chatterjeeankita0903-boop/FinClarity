@@ -69,6 +69,7 @@ interface AppState {
 const generateId = () => Math.random().toString(36).substring(2, 15);
 
 const SAMPLE_TRANSACTIONS: Transaction[] = [
+  { id: '0', amount: 75000, date: '2026-03-01', merchant: 'Salary Credit - TCS', category: 'Other', paymentMode: 'Net Banking', source: 'sms', isSplit: false, userShare: 75000, isIgnored: false, groupId: null, splits: [], note: 'Monthly salary credited' },
   { id: '1', amount: 450, date: '2026-03-30', merchant: 'Swiggy', category: 'Food', paymentMode: 'UPI', source: 'sms', isSplit: false, userShare: 450, isIgnored: false, groupId: null, splits: [] },
   { id: '2', amount: 1200, date: '2026-03-29', merchant: 'Amazon', category: 'Shopping', paymentMode: 'Credit Card', source: 'sms', isSplit: false, userShare: 1200, isIgnored: false, groupId: null, splits: [] },
   { id: '3', amount: 2500, date: '2026-03-28', merchant: 'Uber', category: 'Transport', paymentMode: 'UPI', source: 'sms', isSplit: true, userShare: 1250, isIgnored: false, groupId: null, splits: [{ id: 's1', name: 'Rahul', share: 1250, settled: false }] },
