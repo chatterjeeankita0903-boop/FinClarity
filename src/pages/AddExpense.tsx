@@ -28,6 +28,22 @@ const AddExpense = () => {
     note: '',
   });
 
+  const simulateAiExtraction = (file: File) => {
+    // Simulate AI-powered OCR extraction with realistic receipt data
+    const receiptDb = [
+      { merchant: 'BigBazaar', amount: 2340, category: 'Shopping' as Category, paymentMode: 'Debit Card' as PaymentMode },
+      { merchant: 'Dominos Pizza', amount: 649, category: 'Food' as Category, paymentMode: 'UPI' as PaymentMode },
+      { merchant: 'Shell Petrol Pump', amount: 1500, category: 'Transport' as Category, paymentMode: 'Credit Card' as PaymentMode },
+      { merchant: 'Reliance Fresh', amount: 875, category: 'Food' as Category, paymentMode: 'UPI' as PaymentMode },
+      { merchant: 'Apollo Pharmacy', amount: 1230, category: 'Health' as Category, paymentMode: 'Cash' as PaymentMode },
+      { merchant: 'Croma Electronics', amount: 4599, category: 'Shopping' as Category, paymentMode: 'Credit Card' as PaymentMode },
+      { merchant: 'IRCTC', amount: 1850, category: 'Travel' as Category, paymentMode: 'Net Banking' as PaymentMode },
+      { merchant: 'McDonald\'s', amount: 389, category: 'Food' as Category, paymentMode: 'UPI' as PaymentMode },
+    ];
+    const picked = receiptDb[Math.floor(Math.random() * receiptDb.length)];
+    return picked;
+  };
+
   const handleImageCapture = (source: 'camera' | 'gallery') => {
     const input = document.createElement('input');
     input.type = 'file';
@@ -39,17 +55,19 @@ const AddExpense = () => {
         const reader = new FileReader();
         reader.onload = (ev) => {
           setImagePreview(ev.target?.result as string);
+          // Simulate AI processing delay
+          const extracted = simulateAiExtraction(file);
           setTimeout(() => {
             setForm({
               ...form,
-              merchant: 'Scanned Receipt',
-              amount: '1250',
-              category: 'Shopping',
-              paymentMode: 'Cash',
+              merchant: extracted.merchant,
+              amount: String(extracted.amount),
+              category: extracted.category,
+              paymentMode: extracted.paymentMode,
             });
             setMode('manual');
-            toast.success('🧠 AI scanned receipt — ₹1,250 detected');
-          }, 1500);
+            toast.success(`🧠 AI extracted: ₹${extracted.amount.toLocaleString('en-IN')} at ${extracted.merchant}`);
+          }, 2000);
         };
         reader.readAsDataURL(file);
       }
