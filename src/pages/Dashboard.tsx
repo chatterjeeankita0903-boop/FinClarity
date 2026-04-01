@@ -15,6 +15,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const transactions = useStore(s => s.transactions);
   const budget = useStore(s => s.budget);
+  const settings = useStore(s => s.settings);
   const totalSpend = useMemo(() => getTotalSpend(transactions, '2026-03'), [transactions]);
   const categoryData = useMemo(() => getCategoryBreakdown(transactions, '2026-03'), [transactions]);
   const paymentData = useMemo(() => getPaymentModeBreakdown(transactions, '2026-03'), [transactions]);
@@ -27,24 +28,19 @@ const Dashboard = () => {
   const healthScore = useMemo(() => {
     let score = 100;
     const budgetUsage = budget.overall > 0 ? totalSpend / budget.overall : 0;
-    // Budget adherence: -30 if over, -15 if >80%
     if (budgetUsage > 1) score -= 30;
     else if (budgetUsage > 0.8) score -= 15;
     else if (budgetUsage > 0.6) score -= 5;
 
-    // Category diversification: penalize if >50% in one category
     const topCat = categoryData[0];
     if (topCat && totalSpend > 0 && topCat.value / totalSpend > 0.5) score -= 10;
 
-    // Savings/SIP bonus
     const hasSIP = txns.some(t => t.category === 'SIP' && t.date.startsWith('2026-03'));
     if (hasSIP) score += 5;
 
-    // Split usage bonus (cost sharing)
     const splitTxns = txns.filter(t => t.isSplit && t.date.startsWith('2026-03'));
     if (splitTxns.length > 0) score += 5;
 
-    // Consistency: penalize if no transactions (inactive tracking)
     if (txnCount === 0) score -= 20;
 
     return Math.max(0, Math.min(100, score));
@@ -65,10 +61,10 @@ const Dashboard = () => {
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm text-muted-foreground">March 2026</p>
-          <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
+          <h1 className="text-2xl font-bold text-foreground">FinClarity</h1>
         </div>
         <div className="flex items-center gap-2">
-          <NotificationBell />
+          {settings.budgetAlerts && <NotificationBell />}
           <button onClick={() => navigate('/settings')} className="p-2 rounded-xl bg-secondary text-muted-foreground">
             <Settings className="w-5 h-5" />
           </button>
@@ -124,34 +120,36 @@ const Dashboard = () => {
         )}
       </div>
 
-      <BudgetBar />
+      {settings.budgetAlerts && <BudgetBar />}
 
-      {/* By Category */}
-      <div className="glass-card p-4">
-        <h3 className="text-sm font-semibold text-foreground mb-3">By Category</h3>
-        <div className="flex items-center gap-4">
-          <div className="w-28 h-28">
-            <ResponsiveContainer>
-              <PieChart>
-                <Pie data={categoryData} cx="50%" cy="50%" innerRadius={25} outerRadius={48} paddingAngle={3} dataKey="value" stroke="none">
-                  {categoryData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                </Pie>
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="flex-1 space-y-1.5 max-h-28 overflow-y-auto">
-            {categoryData.map((item, i) => (
-              <div key={item.name} className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
-                  <span className="text-muted-foreground text-xs">{item.name}</span>
+      {/* By Category - shown when AI categorisation is on */}
+      {settings.aiCategorisation && (
+        <div className="glass-card p-4">
+          <h3 className="text-sm font-semibold text-foreground mb-3">By Category</h3>
+          <div className="flex items-center gap-4">
+            <div className="w-28 h-28">
+              <ResponsiveContainer>
+                <PieChart>
+                  <Pie data={categoryData} cx="50%" cy="50%" innerRadius={25} outerRadius={48} paddingAngle={3} dataKey="value" stroke="none">
+                    {categoryData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex-1 space-y-1.5 max-h-28 overflow-y-auto">
+              {categoryData.map((item, i) => (
+                <div key={item.name} className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                    <span className="text-muted-foreground text-xs">{item.name}</span>
+                  </div>
+                  <span className="font-medium text-foreground text-xs">{formatAmount(item.value)}</span>
                 </div>
-                <span className="font-medium text-foreground text-xs">{formatAmount(item.value)}</span>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* By Payment Mode */}
       <div className="glass-card p-4">

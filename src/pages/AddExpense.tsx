@@ -15,7 +15,7 @@ const CATEGORY_EMOJI: Record<string, string> = {
 
 const AddExpense = () => {
   const navigate = useNavigate();
-  const { addTransaction, isDuplicate } = useStore();
+  const { addTransaction, isDuplicate, settings } = useStore();
   const [mode, setMode] = useState<'manual' | 'sms' | 'camera' | 'image'>('manual');
   const [smsText, setSmsText] = useState('');
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -39,7 +39,6 @@ const AddExpense = () => {
         const reader = new FileReader();
         reader.onload = (ev) => {
           setImagePreview(ev.target?.result as string);
-          // Simulate AI OCR parsing
           setTimeout(() => {
             setForm({
               ...form,
@@ -98,7 +97,7 @@ const AddExpense = () => {
       return;
     }
     const amount = Number(form.amount);
-    if (isDuplicate(amount, form.merchant, form.date)) {
+    if (settings.duplicateDetection && isDuplicate(amount, form.merchant, form.date)) {
       toast.error('Duplicate transaction detected!');
       return;
     }
@@ -120,6 +119,14 @@ const AddExpense = () => {
     navigate('/transactions');
   };
 
+  // Build available input modes based on settings
+  const inputModes = [
+    { key: 'manual', icon: Keyboard, label: 'Manual', always: true },
+    { key: 'sms', icon: MessageSquare, label: 'Paste SMS', always: false, setting: 'smsIntelligence' as const },
+    { key: 'camera', icon: Camera, label: 'Camera', always: false, setting: 'ocrReceiptScan' as const },
+    { key: 'image', icon: Image, label: 'Upload', always: false, setting: 'ocrReceiptScan' as const },
+  ].filter(m => m.always || settings[m.setting!]);
+
   return (
     <div className="px-4 pt-14 safe-bottom">
       <div className="flex items-center gap-3 mb-6">
@@ -127,27 +134,24 @@ const AddExpense = () => {
         <h1 className="text-2xl font-bold text-foreground">Add Expense</h1>
       </div>
 
-      {/* AI SMS Engine Link */}
-      <button
-        onClick={() => navigate('/sms-engine')}
-        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-primary/10 border border-primary/20 mb-5"
-      >
-        <MessageSquare className="w-5 h-5 text-primary" />
-        <div className="text-left flex-1">
-          <span className="text-sm font-semibold text-primary">AI SMS Engine</span>
-          <p className="text-[10px] text-muted-foreground">Auto-scan bank messages & add to ledger</p>
-        </div>
-        <span className="text-xs text-primary font-bold">→</span>
-      </button>
+      {/* AI SMS Engine Link - only if smsIntelligence enabled */}
+      {settings.smsIntelligence && (
+        <button
+          onClick={() => navigate('/sms-engine')}
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-primary/10 border border-primary/20 mb-5"
+        >
+          <MessageSquare className="w-5 h-5 text-primary" />
+          <div className="text-left flex-1">
+            <span className="text-sm font-semibold text-primary">AI SMS Engine</span>
+            <p className="text-[10px] text-muted-foreground">Auto-scan bank messages & add to ledger</p>
+          </div>
+          <span className="text-xs text-primary font-bold">→</span>
+        </button>
+      )}
 
       {/* Input Mode Selector */}
-      <div className="grid grid-cols-4 gap-2 mb-6">
-        {[
-          { key: 'manual', icon: Keyboard, label: 'Manual' },
-          { key: 'sms', icon: MessageSquare, label: 'Paste SMS' },
-          { key: 'camera', icon: Camera, label: 'Camera' },
-          { key: 'image', icon: Image, label: 'Upload' },
-        ].map(({ key, icon: Icon, label }) => (
+      <div className={`grid gap-2 mb-6`} style={{ gridTemplateColumns: `repeat(${inputModes.length}, 1fr)` }}>
+        {inputModes.map(({ key, icon: Icon, label }) => (
           <button
             key={key}
             onClick={() => {
