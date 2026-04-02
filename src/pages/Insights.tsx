@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { getCategoryBreakdown, getPaymentModeBreakdown, getActiveTransactions, getTotalSpend, useStore } from '@/store/useStore';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, PieChart, Pie, Cell, LineChart, Line, CartesianGrid } from 'recharts';
-import { Brain, TrendingUp, TrendingDown, Lightbulb, CreditCard, CalendarDays, Users, Filter } from 'lucide-react';
+import { Brain, TrendingUp, TrendingDown, Lightbulb, CreditCard, CalendarDays, Users, Filter, Heart, Info } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { getCurrentMonth, getRecentMonths, getShortMonthLabel, getMonthLabel, getPreviousMonth } from '@/lib/dateUtils';
 
@@ -19,23 +19,14 @@ const Insights = () => {
   const [dateTo, setDateTo] = useState('');
   const [selectedGroup, setSelectedGroup] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const [showScoreInfo, setShowScoreInfo] = useState(false);
 
-  // Filter transactions by date range, group, and month
   const filteredTxns = useMemo(() => {
     let txns = getActiveTransactions(transactions);
-    if (selectedGroup) {
-      txns = txns.filter(t => t.groupId === selectedGroup);
-    }
-    if (dateFrom) {
-      txns = txns.filter(t => t.date >= dateFrom);
-    }
-    if (dateTo) {
-      txns = txns.filter(t => t.date <= dateTo);
-    }
-    // If date range is set, ignore month filter
-    if (!dateFrom && !dateTo) {
-      txns = txns.filter(t => t.date.startsWith(selectedMonth));
-    }
+    if (selectedGroup) txns = txns.filter(t => t.groupId === selectedGroup);
+    if (dateFrom) txns = txns.filter(t => t.date >= dateFrom);
+    if (dateTo) txns = txns.filter(t => t.date <= dateTo);
+    if (!dateFrom && !dateTo) txns = txns.filter(t => t.date.startsWith(selectedMonth));
     return txns;
   }, [transactions, selectedMonth, dateFrom, dateTo, selectedGroup]);
 
@@ -57,19 +48,7 @@ const Insights = () => {
     return Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([name, value]) => ({ name, value }));
   }, [filteredTxns]);
 
-  const categoryBudgetData = useMemo(() => categoryData.map(c => ({
-    name: c.name,
-    spent: c.value,
-    budget: budget.categories[c.name as keyof typeof budget.categories] || 0,
-  })), [categoryData, budget]);
-
-  // Month-on-Month data
-  const momData = useMemo(() => {
-    return recentMonths.map(m => ({
-      month: getShortMonthLabel(m),
-      spend: getTotalSpend(transactions, m),
-    }));
-  }, [transactions, recentMonths]);
+  const momData = useMemo(() => recentMonths.map(m => ({ month: getShortMonthLabel(m), spend: getTotalSpend(transactions, m) })), [transactions, recentMonths]);
 
   const prevMonth = getPreviousMonth();
   const momChange = useMemo(() => {
@@ -79,40 +58,42 @@ const Insights = () => {
     return ((curr - prev) / prev * 100).toFixed(0);
   }, [transactions, selectedMonth, prevMonth]);
 
+  // Financial Health Score
+  const healthScore = useMemo(() => {
+    let score = 100;
+    const budgetUsage = budget.overall > 0 ? totalSpend / budget.overall : 0;
+    if (budgetUsage > 1) score -= 30;
+    else if (budgetUsage > 0.8) score -= 15;
+    else if (budgetUsage > 0.6) score -= 5;
+    const topCat = categoryData[0];
+    if (topCat && totalSpend > 0 && topCat.value / totalSpend > 0.5) score -= 10;
+    const hasSIP = filteredTxns.some(t => t.category === 'SIP');
+    if (hasSIP) score += 5;
+    const splitTxns = filteredTxns.filter(t => t.isSplit);
+    if (splitTxns.length > 0) score += 5;
+    if (filteredTxns.length === 0) score -= 20;
+    return Math.max(0, Math.min(100, score));
+  }, [totalSpend, budget, categoryData, filteredTxns]);
+
+  const scoreColor = healthScore >= 75 ? 'text-primary' : healthScore >= 50 ? 'text-accent' : 'text-destructive';
+  const scoreLabel = healthScore >= 75 ? 'Excellent' : healthScore >= 50 ? 'Good' : 'Needs Attention';
+
   // AI Insights
   const aiInsights = useMemo(() => {
     const insights: { icon: typeof TrendingUp; text: string; type: 'tip' | 'warning' | 'positive' }[] = [];
-
     if (categoryData.length > 0) {
       const top = categoryData[0];
       const pct = totalSpend > 0 ? ((top.value / totalSpend) * 100).toFixed(0) : '0';
       insights.push({ icon: TrendingUp, text: `${top.name} is your top spend at ${pct}% (₹${top.value.toLocaleString('en-IN')}). Consider setting a tighter budget.`, type: 'tip' });
     }
-
     const budgetUsage = budget.overall > 0 ? (totalSpend / budget.overall) * 100 : 0;
-    if (budgetUsage > 80) {
-      insights.push({ icon: TrendingDown, text: `You've used ${budgetUsage.toFixed(0)}% of your monthly budget. Consider pausing discretionary spending.`, type: 'warning' });
-    }
-
+    if (budgetUsage > 80) insights.push({ icon: TrendingDown, text: `You've used ${budgetUsage.toFixed(0)}% of your monthly budget. Consider pausing discretionary spending.`, type: 'warning' });
     const sipTxn = filteredTxns.find(t => t.category === 'SIP');
-    if (sipTxn) {
-      insights.push({ icon: Lightbulb, text: `Great job! Your SIP of ₹${sipTxn.userShare.toLocaleString('en-IN')} is active. Consistency builds wealth.`, type: 'positive' });
-    }
-
+    if (sipTxn) insights.push({ icon: Lightbulb, text: `Great job! Your SIP of ₹${sipTxn.userShare.toLocaleString('en-IN')} is active. Consistency builds wealth.`, type: 'positive' });
     const splitSavings = filteredTxns.filter(t => t.isSplit).reduce((s, t) => s + (t.amount - t.userShare), 0);
-    if (splitSavings > 0) {
-      insights.push({ icon: Lightbulb, text: `You saved ₹${splitSavings.toLocaleString('en-IN')} by splitting expenses. Keep sharing costs!`, type: 'positive' });
-    }
-
-    if (paymentData.length > 0) {
-      const topMode = paymentData[0];
-      insights.push({ icon: CreditCard, text: `${topMode.name} is your most used payment mode (₹${topMode.value.toLocaleString('en-IN')}). Track rewards if using credit cards.`, type: 'tip' });
-    }
-
-    if (momChange && Number(momChange) > 20) {
-      insights.push({ icon: TrendingDown, text: `Spending is up ${momChange}% vs last month. Review recurring subscriptions and one-off purchases.`, type: 'warning' });
-    }
-
+    if (splitSavings > 0) insights.push({ icon: Lightbulb, text: `You saved ₹${splitSavings.toLocaleString('en-IN')} by splitting expenses. Keep sharing costs!`, type: 'positive' });
+    if (paymentData.length > 0) { const topMode = paymentData[0]; insights.push({ icon: CreditCard, text: `${topMode.name} is your most used payment mode (₹${topMode.value.toLocaleString('en-IN')}).`, type: 'tip' }); }
+    if (momChange && Number(momChange) > 20) insights.push({ icon: TrendingDown, text: `Spending is up ${momChange}% vs last month. Review recurring subscriptions.`, type: 'warning' });
     return insights;
   }, [filteredTxns, categoryData, budget, paymentData, momChange, totalSpend]);
 
@@ -124,21 +105,13 @@ const Insights = () => {
     { key: 'ai' as const, label: 'AI Insights' },
   ];
 
-  const insightTypeStyles = {
-    tip: 'border-info/30 bg-info/5',
-    warning: 'border-accent/30 bg-accent/5',
-    positive: 'border-primary/30 bg-primary/5',
-  };
-  const insightIconStyles = {
-    tip: 'text-info',
-    warning: 'text-accent',
-    positive: 'text-primary',
-  };
+  const insightTypeStyles = { tip: 'border-info/30 bg-info/5', warning: 'border-accent/30 bg-accent/5', positive: 'border-primary/30 bg-primary/5' };
+  const insightIconStyles = { tip: 'text-info', warning: 'text-accent', positive: 'text-primary' };
 
   const hasDateFilter = !!(dateFrom || dateTo);
 
   return (
-    <div className="px-4 pt-14 safe-bottom space-y-5">
+    <div className="px-4 pt-14 safe-bottom space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-foreground">Insights</h1>
         <button onClick={() => setShowFilters(!showFilters)} className={`p-2 rounded-xl transition-colors ${showFilters ? 'bg-primary/10 text-primary' : 'bg-secondary text-muted-foreground'}`}>
@@ -149,17 +122,9 @@ const Insights = () => {
       {/* Month Pills */}
       <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
         {recentMonths.map(m => (
-          <button
-            key={m}
-            onClick={() => { setSelectedMonth(m); setDateFrom(''); setDateTo(''); }}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border transition-colors ${
-              selectedMonth === m && !hasDateFilter
-                ? 'border-primary bg-primary/10 text-primary'
-                : 'border-border bg-secondary text-muted-foreground'
-            }`}
-          >
-            {getShortMonthLabel(m)}
-          </button>
+          <button key={m} onClick={() => { setSelectedMonth(m); setDateFrom(''); setDateTo(''); }}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border transition-colors ${selectedMonth === m && !hasDateFilter ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-secondary text-muted-foreground'}`}
+          >{getShortMonthLabel(m)}</button>
         ))}
       </div>
 
@@ -192,28 +157,52 @@ const Insights = () => {
       {/* Tabs */}
       <div className="flex gap-2">
         {tabs.map(tab => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`px-4 py-2 rounded-full text-sm font-medium transition-colors border ${
-              activeTab === tab.key
-                ? 'border-primary bg-primary/10 text-primary'
-                : 'border-border bg-secondary text-muted-foreground'
-            }`}
-          >
-            {tab.label}
-          </button>
+          <button key={tab.key} onClick={() => setActiveTab(tab.key)}
+            className={`px-4 py-2 rounded-full text-sm font-medium transition-colors border ${activeTab === tab.key ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-secondary text-muted-foreground'}`}
+          >{tab.label}</button>
         ))}
       </div>
 
-      {/* Period Label */}
       <p className="text-xs text-muted-foreground">
-        {hasDateFilter
-          ? `${dateFrom || '...'} → ${dateTo || '...'}`
-          : getMonthLabel(selectedMonth)}
+        {hasDateFilter ? `${dateFrom || '...'} → ${dateTo || '...'}` : getMonthLabel(selectedMonth)}
         {selectedGroup ? ` · ${groups.find(g => g.id === selectedGroup)?.name}` : ''}
         {` · ${filteredTxns.length} txns · ${formatAmount(totalSpend)}`}
       </p>
+
+      {/* Financial Health Score */}
+      <div className="glass-card p-4 relative">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <Heart className="w-4 h-4 text-primary" />
+            <h3 className="text-sm font-semibold text-foreground">Financial Health</h3>
+          </div>
+          <button onClick={() => setShowScoreInfo(!showScoreInfo)} className="text-muted-foreground"><Info className="w-4 h-4" /></button>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="relative w-16 h-16">
+            <svg className="w-16 h-16 -rotate-90" viewBox="0 0 64 64">
+              <circle cx="32" cy="32" r="28" fill="none" stroke="hsl(var(--secondary))" strokeWidth="6" />
+              <circle cx="32" cy="32" r="28" fill="none" stroke="hsl(var(--primary))" strokeWidth="6"
+                strokeDasharray={`${(healthScore / 100) * 175.9} 175.9`}
+                strokeLinecap="round" className="transition-all duration-700" />
+            </svg>
+            <span className={`absolute inset-0 flex items-center justify-center text-lg font-extrabold ${scoreColor}`}>{healthScore}</span>
+          </div>
+          <div>
+            <p className={`text-sm font-bold ${scoreColor}`}>{scoreLabel}</p>
+            <p className="text-[11px] text-muted-foreground">Based on budget, savings & spending patterns</p>
+          </div>
+        </div>
+        {showScoreInfo && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} className="mt-3 p-3 bg-secondary rounded-lg text-[11px] text-muted-foreground space-y-1">
+            <p>• <strong>Budget adherence</strong>: Under 60% = +0, 60-80% = -5, 80-100% = -15, Over = -30</p>
+            <p>• <strong>Category balance</strong>: Top category &gt;50% of spend = -10</p>
+            <p>• <strong>SIP/Investments</strong>: Active SIP = +5</p>
+            <p>• <strong>Cost sharing</strong>: Using splits = +5</p>
+            <p>• <strong>Active tracking</strong>: No transactions = -20</p>
+          </motion.div>
+        )}
+      </div>
 
       {activeTab === 'overview' && (
         <>
@@ -256,30 +245,6 @@ const Insights = () => {
             </div>
           </div>
 
-          {/* Category Budget Usage */}
-          <div className="glass-card p-4">
-            <h3 className="text-sm font-semibold text-foreground mb-3">Category Budget Usage</h3>
-            <div className="space-y-3">
-              {categoryBudgetData.filter(c => c.budget > 0).map(c => {
-                const pct = Math.min((c.spent / c.budget) * 100, 100);
-                const over = c.spent > c.budget;
-                return (
-                  <div key={c.name}>
-                    <div className="flex justify-between text-xs mb-1">
-                      <span className="text-muted-foreground">{c.name}</span>
-                      <span className={`font-medium ${over ? 'text-destructive' : 'text-foreground'}`}>
-                        {formatAmount(c.spent)} / {formatAmount(c.budget)}
-                      </span>
-                    </div>
-                    <div className="h-2 bg-secondary rounded-full overflow-hidden">
-                      <div className={`h-full rounded-full transition-all ${over ? 'gradient-danger' : pct >= 80 ? 'gradient-accent' : 'gradient-primary'}`} style={{ width: `${pct}%` }} />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
           {/* Spending Distribution */}
           <div className="glass-card p-4">
             <h3 className="text-sm font-semibold text-foreground mb-3">Spending Distribution</h3>
@@ -299,7 +264,6 @@ const Insights = () => {
 
       {activeTab === 'modes' && (
         <>
-          {/* Payment Mode Pie */}
           <div className="glass-card p-4">
             <h3 className="text-sm font-semibold text-foreground mb-3">Payment Mode Distribution</h3>
             <div className="h-48">
@@ -314,7 +278,6 @@ const Insights = () => {
             </div>
           </div>
 
-          {/* Payment Mode Bars */}
           <div className="glass-card p-4">
             <h3 className="text-sm font-semibold text-foreground mb-3">Spend by Mode</h3>
             <div className="space-y-3">
@@ -347,11 +310,7 @@ const Insights = () => {
             <h3 className="text-sm font-semibold text-foreground">AI-Powered Insights</h3>
           </div>
           {aiInsights.map((insight, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.1 }}
+            <motion.div key={i} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.1 }}
               className={`p-4 rounded-xl border ${insightTypeStyles[insight.type]}`}
             >
               <div className="flex gap-3">
@@ -361,7 +320,7 @@ const Insights = () => {
             </motion.div>
           ))}
           {aiInsights.length === 0 && (
-            <p className="text-center text-muted-foreground py-12 text-sm">Add more transactions to unlock AI insights</p>
+            <p className="text-center text-muted-foreground py-8 text-sm">No insights for this period</p>
           )}
         </div>
       )}
