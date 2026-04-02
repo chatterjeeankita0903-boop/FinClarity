@@ -1,8 +1,7 @@
 import { useState, useMemo } from 'react';
-import { Search, X } from 'lucide-react';
+import { Search, X, ArrowUpDown } from 'lucide-react';
 import { useStore, Category, PaymentMode } from '@/store/useStore';
 import { TransactionCard } from '@/components/TransactionCard';
-import { motion, AnimatePresence } from 'framer-motion';
 import { getRecentMonths, getShortMonthLabel, getCurrentMonth } from '@/lib/dateUtils';
 
 const CATEGORIES: Category[] = ['Food', 'Transport', 'Shopping', 'Bills', 'Rent', 'Entertainment', 'Health', 'SIP', 'Travel', 'Education', 'Other'];
@@ -19,9 +18,10 @@ const Transactions = () => {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth());
   const [showIgnored, setShowIgnored] = useState(false);
+  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
 
   const filtered = useMemo(() => {
-    return transactions.filter(t => {
+    let result = transactions.filter(t => {
       if (!showIgnored && t.isIgnored) return false;
       if (selectedCategory && t.category !== selectedCategory) return false;
       if (selectedMode && t.paymentMode !== selectedMode) return false;
@@ -29,7 +29,13 @@ const Transactions = () => {
       if (search && !t.merchant.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
     });
-  }, [transactions, search, selectedMode, selectedCategory, selectedMonth, showIgnored]);
+    // Sort by date
+    result = [...result].sort((a, b) => {
+      const cmp = a.date.localeCompare(b.date);
+      return sortOrder === 'newest' ? -cmp : cmp;
+    });
+    return result;
+  }, [transactions, search, selectedMode, selectedCategory, selectedMonth, showIgnored, sortOrder]);
 
   const totalFiltered = useMemo(() => filtered.reduce((s, t) => s + t.userShare, 0), [filtered]);
 
@@ -37,7 +43,16 @@ const Transactions = () => {
 
   return (
     <div className="px-4 pt-14 safe-bottom">
-      <h1 className="text-2xl font-bold text-foreground mb-1">Transactions</h1>
+      <div className="flex items-center justify-between mb-1">
+        <h1 className="text-2xl font-bold text-foreground">Transactions</h1>
+        <button
+          onClick={() => setSortOrder(sortOrder === 'newest' ? 'oldest' : 'newest')}
+          className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium border border-border bg-secondary text-muted-foreground"
+        >
+          <ArrowUpDown className="w-3 h-3" />
+          {sortOrder === 'newest' ? 'Newest' : 'Oldest'}
+        </button>
+      </div>
       <p className="text-sm text-muted-foreground mb-4">
         {filtered.length} transactions · ₹{totalFiltered.toLocaleString('en-IN')}
       </p>
@@ -60,9 +75,7 @@ const Transactions = () => {
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border transition-colors ${
             !selectedMode ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-secondary text-muted-foreground'
           }`}
-        >
-          All
-        </button>
+        >All</button>
         {PAYMENT_MODES.map(mode => (
           <button
             key={mode}
@@ -84,9 +97,7 @@ const Transactions = () => {
           className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border transition-colors ${
             !selectedCategory ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-secondary text-muted-foreground'
           }`}
-        >
-          All Categories
-        </button>
+        >All Categories</button>
         {CATEGORIES.map(cat => (
           <button
             key={cat}
@@ -94,9 +105,7 @@ const Transactions = () => {
             className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border transition-colors ${
               selectedCategory === cat ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-secondary text-muted-foreground'
             }`}
-          >
-            {cat}
-          </button>
+          >{cat}</button>
         ))}
       </div>
 
@@ -109,9 +118,7 @@ const Transactions = () => {
             className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border transition-colors ${
               selectedMonth === m.key ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-secondary text-muted-foreground'
             }`}
-          >
-            {m.label}
-          </button>
+          >{m.label}</button>
         ))}
       </div>
 

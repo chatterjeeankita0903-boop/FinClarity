@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, MessageSquare, Brain, Camera, Bell, Shield, Link2, Lock, FileDown, Wallet, ChevronRight, Info } from 'lucide-react';
+import { ArrowLeft, MessageSquare, Brain, Camera, Bell, Shield, Link2, Lock, FileDown, Wallet, ChevronRight } from 'lucide-react';
 import { useStore, Category } from '@/store/useStore';
 import { Switch } from '@/components/ui/switch';
 import { useNavigate } from 'react-router-dom';
@@ -13,10 +13,7 @@ const Settings = () => {
   const [showBudgetEditor, setShowBudgetEditor] = useState(false);
   const [editBudget, setEditBudget] = useState(budget);
 
-  const saveBudget = () => {
-    setBudget(editBudget);
-    setShowBudgetEditor(false);
-  };
+  const saveBudget = () => { setBudget(editBudget); setShowBudgetEditor(false); };
 
   const aiFeatures = [
     { key: 'smsIntelligence' as const, icon: MessageSquare, label: 'SMS Intelligence', desc: 'Auto-read transactional SMS', color: 'text-primary' },
@@ -34,7 +31,7 @@ const Settings = () => {
   ];
 
   return (
-    <div className="px-4 pt-14 safe-bottom">
+    <div className="px-4 pt-14 pb-24 safe-bottom">
       <div className="flex items-center gap-3 mb-6">
         <button onClick={() => navigate(-1)} className="p-2 rounded-xl bg-secondary text-muted-foreground">
           <ArrowLeft className="w-5 h-5" />
@@ -42,7 +39,6 @@ const Settings = () => {
         <h1 className="text-2xl font-bold text-foreground">Settings</h1>
       </div>
 
-      {/* AI Features */}
       <p className="text-xs font-semibold text-muted-foreground tracking-wider uppercase mb-3">AI Features</p>
       <div className="space-y-1 mb-6">
         {aiFeatures.map((f) => (
@@ -56,21 +52,15 @@ const Settings = () => {
                 <p className="text-[11px] text-muted-foreground">{f.desc}</p>
               </div>
             </div>
-            <Switch
-              checked={settings[f.key]}
-              onCheckedChange={(checked) => updateSettings({ [f.key]: checked })}
-            />
+            <Switch checked={settings[f.key]} onCheckedChange={(checked) => updateSettings({ [f.key]: checked })} />
           </div>
         ))}
       </div>
 
-      {/* Account */}
       <p className="text-xs font-semibold text-muted-foreground tracking-wider uppercase mb-3">Account</p>
       <div className="space-y-1 mb-6">
         {accountItems.map((item) => (
-          <button
-            key={item.label}
-            onClick={item.action}
+          <button key={item.label} onClick={item.action}
             className="w-full flex items-center justify-between py-3 px-4 bg-card rounded-xl border border-border text-left"
           >
             <div className="flex items-center gap-3">
@@ -89,13 +79,10 @@ const Settings = () => {
 
       <p className="text-center text-[11px] text-muted-foreground mt-8">FinClarity v1.0 · Privacy First · E2E Encrypted</p>
 
-      {/* Budget Editor Modal */}
       {showBudgetEditor && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-background/60 backdrop-blur-sm" onClick={() => setShowBudgetEditor(false)}>
           <motion.div
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            exit={{ y: '100%' }}
+            initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
             className="w-full max-w-lg bg-card border-t border-border rounded-t-2xl p-6 max-h-[80vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
@@ -106,12 +93,8 @@ const Settings = () => {
 
             <div className="mb-5">
               <label className="text-xs text-muted-foreground mb-1.5 block">Overall Monthly Budget</label>
-              <input
-                type="number"
-                value={editBudget.overall}
-                onChange={(e) => setEditBudget({ ...editBudget, overall: Number(e.target.value) })}
-                className="w-full bg-secondary rounded-xl px-4 py-3 text-sm text-foreground outline-none border border-border focus:border-primary"
-              />
+              <input type="number" value={editBudget.overall} onChange={(e) => setEditBudget({ ...editBudget, overall: Number(e.target.value) })}
+                className="w-full bg-secondary rounded-xl px-4 py-3 text-sm text-foreground outline-none border border-border focus:border-primary" />
             </div>
 
             <p className="text-xs text-muted-foreground mb-3">Category Budgets</p>
@@ -119,23 +102,15 @@ const Settings = () => {
               {CATEGORIES.map(cat => (
                 <div key={cat} className="flex items-center gap-3">
                   <span className="text-sm text-foreground w-28">{cat}</span>
-                  <input
-                    type="number"
-                    value={editBudget.categories[cat] || ''}
-                    onChange={(e) => setEditBudget({
-                      ...editBudget,
-                      categories: { ...editBudget.categories, [cat]: Number(e.target.value) || 0 }
-                    })}
+                  <input type="number" value={editBudget.categories[cat] || ''}
+                    onChange={(e) => setEditBudget({ ...editBudget, categories: { ...editBudget.categories, [cat]: Number(e.target.value) || 0 } })}
                     placeholder="₹0"
-                    className="flex-1 bg-secondary rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none border border-border focus:border-primary"
-                  />
+                    className="flex-1 bg-secondary rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none border border-border focus:border-primary" />
                 </div>
               ))}
             </div>
 
-            <button onClick={saveBudget} className="w-full gradient-primary text-primary-foreground font-semibold py-3 rounded-xl">
-              Save Budgets
-            </button>
+            <button onClick={saveBudget} className="w-full gradient-primary text-primary-foreground font-semibold py-3 rounded-xl">Save Budgets</button>
           </motion.div>
         </div>
       )}
