@@ -14,7 +14,160 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      budgets: {
+        Row: {
+          category_budgets: Json
+          id: string
+          month: string
+          overall_budget: number
+          user_id: string
+        }
+        Insert: {
+          category_budgets?: Json
+          id?: string
+          month: string
+          overall_budget?: number
+          user_id: string
+        }
+        Update: {
+          category_budgets?: Json
+          id?: string
+          month?: string
+          overall_budget?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      group_expenses: {
+        Row: {
+          amount: number
+          date: string
+          description: string
+          group_id: string
+          id: string
+          paid_by: string
+          split_among: Json
+          user_id: string
+        }
+        Insert: {
+          amount?: number
+          date?: string
+          description?: string
+          group_id: string
+          id?: string
+          paid_by?: string
+          split_among?: Json
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          date?: string
+          description?: string
+          group_id?: string
+          id?: string
+          paid_by?: string
+          split_among?: Json
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_expenses_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      groups: {
+        Row: {
+          created_at: string
+          id: string
+          members: Json
+          name: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          members?: Json
+          name: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          members?: Json
+          name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      settlements: {
+        Row: {
+          amount: number
+          group_id: string
+          id: string
+          settled_at: string
+          user_id: string
+        }
+        Insert: {
+          amount?: number
+          group_id: string
+          id?: string
+          settled_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          group_id?: string
+          id?: string
+          settled_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "settlements_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transactions: {
+        Row: {
+          amount: number
+          category: string
+          created_at: string
+          date: string
+          id: string
+          name: string
+          payment_method: string
+          user_id: string
+        }
+        Insert: {
+          amount?: number
+          category?: string
+          created_at?: string
+          date?: string
+          id?: string
+          name: string
+          payment_method?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          category?: string
+          created_at?: string
+          date?: string
+          id?: string
+          name?: string
+          payment_method?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
