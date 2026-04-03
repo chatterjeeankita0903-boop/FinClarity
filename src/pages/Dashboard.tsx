@@ -58,7 +58,7 @@ const Dashboard = () => {
     return `₹${n.toLocaleString('en-IN')}`;
   };
 
-  const budgetEnabled = settings.budgetAlerts && budget.overall > 0;
+  const budgetEnabled = settings.monthlyBudget && budget.overall > 0;
 
   return (
     <div className="px-4 pt-14 pb-20 safe-bottom flex flex-col gap-3 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 56px)' }}>
