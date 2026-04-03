@@ -29,15 +29,15 @@ export const EditTransactionDialog = ({ transaction, onClose }: { transaction: T
       <motion.div
         initial={{ y: '100%' }}
         animate={{ y: 0 }}
-        className="w-full max-w-lg bg-card border-t border-border rounded-t-2xl p-6"
+        className="w-full max-w-lg bg-card border-t border-border rounded-t-2xl p-6 flex flex-col max-h-[85vh]"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-4 flex-shrink-0">
           <h3 className="text-lg font-bold text-foreground">Edit Transaction</h3>
           <button onClick={onClose} className="text-muted-foreground"><X className="w-5 h-5" /></button>
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-3 overflow-y-auto flex-1 min-h-0">
           <input value={form.merchant} onChange={(e) => setForm({ ...form, merchant: e.target.value })} placeholder="Merchant" className="w-full bg-secondary rounded-lg px-3 py-2.5 text-sm text-foreground outline-none border border-border focus:border-primary" />
           <input type="number" value={form.amount} onChange={(e) => setForm({ ...form, amount: Number(e.target.value) })} placeholder="Amount" className="w-full bg-secondary rounded-lg px-3 py-2.5 text-sm text-foreground outline-none border border-border focus:border-primary" />
           <input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className="w-full bg-secondary rounded-lg px-3 py-2.5 text-sm text-foreground outline-none border border-border focus:border-primary" />
@@ -49,7 +49,7 @@ export const EditTransactionDialog = ({ transaction, onClose }: { transaction: T
           </select>
         </div>
 
-        <button onClick={handleSave} className="w-full gradient-primary text-primary-foreground font-semibold py-3 rounded-xl mt-4">
+        <button onClick={handleSave} className="w-full gradient-primary text-primary-foreground font-semibold py-3 rounded-xl mt-4 flex-shrink-0">
           Save Changes
         </button>
       </motion.div>
