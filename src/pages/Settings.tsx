@@ -1,19 +1,14 @@
 import { useState } from 'react';
 import { ArrowLeft, MessageSquare, Brain, Camera, Bell, Shield, Link2, Lock, FileDown, Wallet, ChevronRight } from 'lucide-react';
-import { useStore, Category } from '@/store/useStore';
+import { useStore } from '@/store/useStore';
 import { Switch } from '@/components/ui/switch';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-
-const CATEGORIES: Category[] = ['Food', 'Transport', 'Shopping', 'Bills', 'Rent', 'Entertainment', 'Health', 'SIP', 'Travel', 'Education', 'Other'];
+import { BudgetEditorSheet } from '@/components/BudgetEditorSheet';
 
 const Settings = () => {
   const navigate = useNavigate();
-  const { budget, setBudget, settings, updateSettings } = useStore();
+  const { settings, updateSettings } = useStore();
   const [showBudgetEditor, setShowBudgetEditor] = useState(false);
-  const [editBudget, setEditBudget] = useState(budget);
-
-  const saveBudget = () => { setBudget(editBudget); setShowBudgetEditor(false); };
 
   const aiFeatures = [
     { key: 'smsIntelligence' as const, icon: MessageSquare, label: 'SMS Intelligence', desc: 'Auto-read transactional SMS', color: 'text-primary' },
@@ -80,43 +75,7 @@ const Settings = () => {
 
       <p className="text-center text-[11px] text-muted-foreground mt-8">FinClarity v1.0 · Privacy First · E2E Encrypted</p>
 
-      {showBudgetEditor && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-background/60 backdrop-blur-sm" onClick={() => setShowBudgetEditor(false)}>
-          <motion.div
-            initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
-            className="w-full max-w-lg bg-card border-t border-border rounded-t-2xl p-6 flex flex-col max-h-[85vh]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-4 flex-shrink-0">
-              <h3 className="text-lg font-bold text-foreground">Manage Budgets</h3>
-              <button onClick={() => setShowBudgetEditor(false)} className="text-muted-foreground text-sm">Done</button>
-            </div>
-
-            <div className="overflow-y-auto flex-1 min-h-0">
-              <div className="mb-5">
-                <label className="text-xs text-muted-foreground mb-1.5 block">Overall Monthly Budget</label>
-                <input type="number" value={editBudget.overall} onChange={(e) => setEditBudget({ ...editBudget, overall: Number(e.target.value) })}
-                  className="w-full bg-secondary rounded-xl px-4 py-3 text-sm text-foreground outline-none border border-border focus:border-primary" />
-              </div>
-
-              <p className="text-xs text-muted-foreground mb-3">Category Budgets</p>
-              <div className="space-y-3 mb-4">
-                {CATEGORIES.map(cat => (
-                  <div key={cat} className="flex items-center gap-3">
-                    <span className="text-sm text-foreground w-28">{cat}</span>
-                    <input type="number" value={editBudget.categories[cat] || ''}
-                      onChange={(e) => setEditBudget({ ...editBudget, categories: { ...editBudget.categories, [cat]: Number(e.target.value) || 0 } })}
-                      placeholder="₹0"
-                      className="flex-1 bg-secondary rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none border border-border focus:border-primary" />
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <button onClick={saveBudget} className="w-full gradient-primary text-primary-foreground font-semibold py-3 rounded-xl flex-shrink-0 mt-2">Set Budget</button>
-          </motion.div>
-        </div>
-      )}
+      <BudgetEditorSheet open={showBudgetEditor} onClose={() => setShowBudgetEditor(false)} />
     </div>
   );
 };

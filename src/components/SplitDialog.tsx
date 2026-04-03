@@ -54,20 +54,20 @@ export const SplitDialog = ({ transaction, onClose }: Props) => {
   const yourShare = transaction.amount - otherTotal;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-background/60 backdrop-blur-sm" onClick={onClose}>
+    <div className="sheet-overlay" onClick={onClose}>
       <motion.div
         initial={{ y: '100%' }}
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
-        className="w-full max-w-lg bg-card border-t border-border rounded-t-2xl p-6 flex flex-col max-h-[85vh]"
+        className="sheet-panel"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between mb-4 flex-shrink-0">
+        <div className="flex items-center justify-between px-6 pt-6 pb-4 flex-shrink-0">
           <h3 className="text-lg font-bold text-foreground">Split ₹{transaction.amount.toLocaleString('en-IN')}</h3>
           <button onClick={onClose} className="text-muted-foreground"><X className="w-5 h-5" /></button>
         </div>
 
-        <div className="overflow-y-auto flex-1 min-h-0">
+        <div className="sheet-body px-6">
           {/* Group Selector */}
           {groups.length > 0 && (
             <div className="mb-4">
@@ -135,7 +135,7 @@ export const SplitDialog = ({ transaction, onClose }: Props) => {
           </button>
         </div>
 
-        <div className="flex-shrink-0 pt-3">
+        <div className="sheet-footer">
           <div className="glass-elevated p-3 rounded-lg mb-3">
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Your share</span>
@@ -143,8 +143,8 @@ export const SplitDialog = ({ transaction, onClose }: Props) => {
             </div>
           </div>
 
-          <button onClick={handleSplit} disabled={yourShare < 0} className="w-full gradient-primary text-primary-foreground font-semibold py-3 rounded-xl disabled:opacity-50">
-            Split Expense
+          <button onClick={handleSplit} disabled={yourShare < 0} className="w-full min-h-12 gradient-primary text-primary-foreground font-semibold py-3 rounded-xl disabled:opacity-50">
+            Confirm Split
           </button>
         </div>
       </motion.div>

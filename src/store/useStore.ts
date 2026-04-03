@@ -1,10 +1,12 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { createJSONStorage, persist } from 'zustand/middleware';
 import { format, subDays } from 'date-fns';
 
 export type Category = 'Food' | 'Transport' | 'Shopping' | 'Bills' | 'Rent' | 'Entertainment' | 'Health' | 'SIP' | 'Travel' | 'Education' | 'Other';
 export type PaymentMode = 'UPI' | 'Credit Card' | 'Debit Card' | 'Cash' | 'Net Banking';
 export type TransactionSource = 'sms' | 'manual' | 'ocr';
+
+export const ALL_CATEGORIES: Category[] = ['Food', 'Transport', 'Shopping', 'Bills', 'Rent', 'Entertainment', 'Health', 'SIP', 'Travel', 'Education', 'Other'];
 
 export interface SplitMember {
   id: string;
@@ -68,6 +70,15 @@ interface AppState {
   isDuplicate: (amount: number, merchant: string, date: string) => boolean;
 }
 
+export const normalizeBudget = (budget?: Partial<Budget>): Budget => ({
+  overall: typeof budget?.overall === 'number' && Number.isFinite(budget.overall) ? Math.max(0, budget.overall) : 0,
+  categories: ALL_CATEGORIES.reduce((accumulator, category) => {
+    const rawValue = budget?.categories?.[category];
+    accumulator[category] = typeof rawValue === 'number' && Number.isFinite(rawValue) ? Math.max(0, rawValue) : 0;
+    return accumulator;
+  }, {} as Record<Category, number>),
+});
+
 const generateId = () => Math.random().toString(36).substring(2, 15);
 
 const d = (daysAgo: number) => format(subDays(new Date(), daysAgo), 'yyyy-MM-dd');
@@ -84,6 +95,11 @@ const SAMPLE_TRANSACTIONS: Transaction[] = [
   { id: '8', amount: 5000, date: d(7), merchant: 'Zerodha Coin', category: 'SIP', paymentMode: 'Net Banking', source: 'sms', isSplit: false, userShare: 5000, isIgnored: false, groupId: null, splits: [] },
 ];
 
+const DEFAULT_BUDGET = normalizeBudget({
+  overall: 50000,
+  categories: { Food: 8000, Transport: 5000, Shopping: 10000, Entertainment: 3000 },
+});
+
 export const useStore = create<AppState>()(
   persist(
     (set, get) => ({
@@ -92,7 +108,7 @@ export const useStore = create<AppState>()(
         { id: 'g1', name: 'Flatmates', members: [{ id: 'm1', name: 'Rahul' }, { id: 'm2', name: 'Amit' }], createdAt: '2026-03-01' },
         { id: 'g2', name: 'Trip Goa', members: [{ id: 'm3', name: 'Priya' }, { id: 'm4', name: 'Sneha' }], createdAt: '2026-03-15' },
       ],
-      budget: { overall: 50000, categories: { Food: 8000, Transport: 5000, Shopping: 10000, Entertainment: 3000 } },
+      budget: DEFAULT_BUDGET,
       settings: { smsIntelligence: true, aiCategorisation: true, ocrReceiptScan: true, budgetAlerts: true, duplicateDetection: true, monthlyBudget: true },
 
       addTransaction: (t) => {
@@ -136,7 +152,7 @@ export const useStore = create<AppState>()(
 
       deleteGroup: (id) => set({ groups: get().groups.filter(g => g.id !== id) }),
 
-      setBudget: (b) => set({ budget: b }),
+      setBudget: (b) => set({ budget: normalizeBudget(b) }),
       updateSettings: (s) => set({ settings: { ...get().settings, ...s } }),
 
       isDuplicate: (amount, merchant, date) => {
@@ -145,7 +161,10 @@ export const useStore = create<AppState>()(
         );
       },
     }),
-    { name: 'finclarity-store' }
+    {
+      name: 'finclarity-store',
+      storage: createJSONStorage(() => localStorage),
+    }
   )
 );
 

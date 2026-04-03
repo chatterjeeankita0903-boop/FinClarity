@@ -7,6 +7,18 @@ import { getCurrentMonth, getRecentMonths, getShortMonthLabel, getMonthLabel, ge
 
 const COLORS = ['#22c55e', '#f97316', '#3b82f6', '#ec4899', '#a855f7', '#eab308', '#14b8a6', '#f43f5e', '#6366f1', '#06b6d4'];
 
+const chartTooltipProps = {
+  contentStyle: {
+    background: 'hsl(var(--chart-tooltip-bg) / 0.96)',
+    border: '1px solid hsl(var(--border))',
+    borderRadius: '12px',
+    fontSize: '12px',
+    color: 'hsl(var(--chart-tooltip-foreground))',
+  },
+  labelStyle: { color: 'hsl(var(--chart-tooltip-foreground))' },
+  itemStyle: { color: 'hsl(var(--chart-tooltip-foreground))' },
+};
+
 const Insights = () => {
   const transactions = useStore(s => s.transactions);
   const budget = useStore(s => s.budget);
@@ -299,7 +311,7 @@ const Insights = () => {
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 14% 16%)" />
                   <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'hsl(215 12% 50%)' }} />
                   <YAxis tick={{ fontSize: 11, fill: 'hsl(215 12% 50%)' }} tickFormatter={v => formatAmount(v)} />
-                  <Tooltip formatter={(v: number) => formatAmount(v)} contentStyle={{ background: 'hsl(220 18% 10%)', border: '1px solid hsl(220 14% 16%)', borderRadius: '8px', fontSize: '12px', color: 'white' }} labelStyle={{ color: 'white' }} itemStyle={{ color: 'white' }} />
+                  <Tooltip formatter={(v: number) => formatAmount(v)} {...chartTooltipProps} />
                   <Line type="monotone" dataKey="spend" stroke="hsl(152 68% 46%)" strokeWidth={2.5} dot={{ fill: 'hsl(152 68% 46%)', r: 4 }} activeDot={{ r: 6, stroke: 'hsl(152 68% 46%)', strokeWidth: 2 }} />
                 </LineChart>
               </ResponsiveContainer>
@@ -314,7 +326,7 @@ const Insights = () => {
                 <BarChart data={topMerchants} layout="vertical">
                   <XAxis type="number" hide />
                   <YAxis type="category" dataKey="name" width={80} tick={{ fontSize: 11, fill: 'hsl(215 12% 50%)' }} />
-                  <Tooltip formatter={(v: number) => formatAmount(v)} contentStyle={{ background: 'hsl(220 18% 10%)', border: '1px solid hsl(220 14% 16%)', borderRadius: '8px', fontSize: '12px', color: 'white' }} labelStyle={{ color: 'white' }} itemStyle={{ color: 'white' }} />
+                  <Tooltip formatter={(v: number) => formatAmount(v)} {...chartTooltipProps} />
                   <Bar dataKey="value" fill="hsl(152 68% 46%)" radius={[0, 6, 6, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -330,7 +342,7 @@ const Insights = () => {
                   <Pie data={categoryData} cx="50%" cy="50%" outerRadius={80} innerRadius={40} paddingAngle={3} dataKey="value" stroke="none">
                     {categoryData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                   </Pie>
-                  <Tooltip formatter={(v: number, name: string) => [`${formatAmount(v as number)}`, name]} contentStyle={{ background: 'hsl(220 18% 10%)', border: '1px solid hsl(220 14% 16%)', borderRadius: '8px', fontSize: '12px', color: 'white' }} labelStyle={{ color: 'white' }} itemStyle={{ color: 'white' }} />
+                  <Tooltip formatter={(v: number, name: string) => [`${formatAmount(v as number)}`, name]} {...chartTooltipProps} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
@@ -348,7 +360,7 @@ const Insights = () => {
                   <Pie data={paymentData} cx="50%" cy="50%" outerRadius={80} innerRadius={40} paddingAngle={3} dataKey="value" stroke="none">
                     {paymentData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                   </Pie>
-                  <Tooltip formatter={(v: number, name: string) => [`${formatAmount(v as number)}`, name]} contentStyle={{ background: 'hsl(220 18% 10%)', border: '1px solid hsl(220 14% 16%)', borderRadius: '8px', fontSize: '12px', color: 'white' }} labelStyle={{ color: 'white' }} itemStyle={{ color: 'white' }} />
+                  <Tooltip formatter={(v: number, name: string) => [`${formatAmount(v as number)}`, name]} {...chartTooltipProps} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
