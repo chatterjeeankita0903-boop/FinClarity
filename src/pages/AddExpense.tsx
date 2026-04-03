@@ -103,33 +103,9 @@ const AddExpense = () => {
 
   return (
     <div className="px-4 pt-14 pb-20 safe-bottom" style={{ maxHeight: 'calc(100vh - 56px)', overflow: 'auto' }}>
-      <div className="flex items-center gap-3 mb-4">
+      <div className="flex items-center gap-3 mb-3">
         <button onClick={() => navigate(-1)} className="text-muted-foreground"><ArrowLeft className="w-5 h-5" /></button>
         <h1 className="text-xl font-bold text-foreground">Add Expense</h1>
-      </div>
-
-      {settings.smsIntelligence && (
-        <button onClick={() => navigate('/sms-engine')} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl bg-primary/10 border border-primary/20 mb-4">
-          <MessageSquare className="w-4 h-4 text-primary" />
-          <div className="text-left flex-1">
-            <span className="text-xs font-semibold text-primary">AI SMS Engine</span>
-            <p className="text-[9px] text-muted-foreground">Auto-scan bank messages</p>
-          </div>
-          <span className="text-xs text-primary font-bold">→</span>
-        </button>
-      )}
-
-      {/* Input Mode Selector */}
-      <div className={`grid gap-2 mb-4`} style={{ gridTemplateColumns: `repeat(${inputModes.length}, 1fr)` }}>
-        {inputModes.map(({ key, icon: Icon, label }) => (
-          <button key={key}
-            onClick={() => { if (key === 'camera') { handleImageCapture('camera'); return; } if (key === 'image') { handleImageCapture('gallery'); return; } setMode(key as 'manual' | 'sms'); }}
-            className={`glass-card p-2.5 flex flex-col items-center gap-1 transition-all ${mode === key ? 'border-primary glow' : 'border-border/50'}`}
-          >
-            <Icon className={`w-4 h-4 ${mode === key ? 'text-primary' : 'text-muted-foreground'}`} />
-            <span className={`text-[9px] font-medium ${mode === key ? 'text-primary' : 'text-muted-foreground'}`}>{label}</span>
-          </button>
-        ))}
       </div>
 
       {imagePreview && (
@@ -143,7 +119,7 @@ const AddExpense = () => {
       )}
 
       {mode === 'sms' && (
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mb-4">
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mb-3">
           <textarea value={smsText} onChange={(e) => setSmsText(e.target.value)}
             placeholder="Paste your bank SMS here..."
             rows={3}
@@ -154,7 +130,7 @@ const AddExpense = () => {
       )}
 
       {mode === 'manual' && (
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-2">
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-[10px] text-muted-foreground mb-0.5 block">Merchant</label>
@@ -198,10 +174,36 @@ const AddExpense = () => {
             <input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} placeholder="Add a note..." className="w-full bg-secondary rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none border border-border focus:border-primary" />
           </div>
 
+          {/* Add Expense CTA - moved above input mode tabs */}
           <button onClick={handleSubmit} className="w-full gradient-primary text-primary-foreground font-bold py-3 rounded-xl text-sm">
             Add Expense
           </button>
         </motion.div>
+      )}
+
+      {/* Input Mode Selector - moved below the form */}
+      <div className={`grid gap-2 mt-3`} style={{ gridTemplateColumns: `repeat(${inputModes.length}, 1fr)` }}>
+        {inputModes.map(({ key, icon: Icon, label }) => (
+          <button key={key}
+            onClick={() => { if (key === 'camera') { handleImageCapture('camera'); return; } if (key === 'image') { handleImageCapture('gallery'); return; } setMode(key as 'manual' | 'sms'); }}
+            className={`glass-card p-2.5 flex flex-col items-center gap-1 transition-all ${mode === key ? 'border-primary glow' : 'border-border/50'}`}
+          >
+            <Icon className={`w-4 h-4 ${mode === key ? 'text-primary' : 'text-muted-foreground'}`} />
+            <span className={`text-[9px] font-medium ${mode === key ? 'text-primary' : 'text-muted-foreground'}`}>{label}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* AI SMS Engine link - moved to bottom */}
+      {settings.smsIntelligence && (
+        <button onClick={() => navigate('/sms-engine')} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl bg-primary/10 border border-primary/20 mt-3">
+          <MessageSquare className="w-4 h-4 text-primary" />
+          <div className="text-left flex-1">
+            <span className="text-xs font-semibold text-primary">AI SMS Engine</span>
+            <p className="text-[9px] text-muted-foreground">Auto-scan bank messages</p>
+          </div>
+          <span className="text-xs text-primary font-bold">→</span>
+        </button>
       )}
     </div>
   );

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { getCategoryBreakdown, getPaymentModeBreakdown, getActiveTransactions, getTotalSpend, useStore } from '@/store/useStore';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, PieChart, Pie, Cell, LineChart, Line, CartesianGrid } from 'recharts';
-import { Brain, TrendingUp, TrendingDown, Lightbulb, CreditCard, CalendarDays, Users, Filter, Heart, Info } from 'lucide-react';
+import { Brain, TrendingUp, TrendingDown, Lightbulb, CreditCard, CalendarDays, Users, Filter, Heart, Info, ArrowLeftRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { getCurrentMonth, getRecentMonths, getShortMonthLabel, getMonthLabel, getPreviousMonth } from '@/lib/dateUtils';
 
@@ -20,6 +20,7 @@ const Insights = () => {
   const [selectedGroup, setSelectedGroup] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [showScoreInfo, setShowScoreInfo] = useState(false);
+  const [compareMonth, setCompareMonth] = useState('');
 
   const filteredTxns = useMemo(() => {
     let txns = getActiveTransactions(transactions);
@@ -57,6 +58,17 @@ const Insights = () => {
     if (prev === 0) return null;
     return ((curr - prev) / prev * 100).toFixed(0);
   }, [transactions, selectedMonth, prevMonth]);
+
+  // Comparison data
+  const comparisonData = useMemo(() => {
+    if (!compareMonth) return null;
+    const compTxns = getActiveTransactions(transactions).filter(t => t.date.startsWith(compareMonth));
+    const compTotal = compTxns.reduce((s, t) => s + t.userShare, 0);
+    const compCatMap: Record<string, number> = {};
+    compTxns.forEach(t => { compCatMap[t.category] = (compCatMap[t.category] || 0) + t.userShare; });
+    const compCategories = Object.entries(compCatMap).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+    return { total: compTotal, txnCount: compTxns.length, categories: compCategories };
+  }, [transactions, compareMonth]);
 
   // Financial Health Score
   const healthScore = useMemo(() => {
@@ -111,7 +123,7 @@ const Insights = () => {
   const hasDateFilter = !!(dateFrom || dateTo);
 
   return (
-    <div className="px-4 pt-14 safe-bottom space-y-4">
+    <div className="px-4 pt-14 pb-24 safe-bottom space-y-4 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 56px)' }}>
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-foreground">Insights</h1>
         <button onClick={() => setShowFilters(!showFilters)} className={`p-2 rounded-xl transition-colors ${showFilters ? 'bg-primary/10 text-primary' : 'bg-secondary text-muted-foreground'}`}>
@@ -163,11 +175,74 @@ const Insights = () => {
         ))}
       </div>
 
+      {/* Highlighted summary stats */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="glass-card p-3 glow">
+          <p className="text-[10px] text-muted-foreground">Transactions</p>
+          <p className="text-xl font-extrabold text-gradient">{filteredTxns.length}</p>
+        </div>
+        <div className="glass-card p-3 glow">
+          <p className="text-[10px] text-muted-foreground">Amount Spent</p>
+          <p className="text-xl font-extrabold text-gradient">{formatAmount(totalSpend)}</p>
+        </div>
+      </div>
+
       <p className="text-xs text-muted-foreground">
         {hasDateFilter ? `${dateFrom || '...'} → ${dateTo || '...'}` : getMonthLabel(selectedMonth)}
         {selectedGroup ? ` · ${groups.find(g => g.id === selectedGroup)?.name}` : ''}
-        {` · ${filteredTxns.length} txns · ${formatAmount(totalSpend)}`}
       </p>
+
+      {/* Compare With Month */}
+      <div className="glass-card p-3">
+        <div className="flex items-center gap-2 mb-2">
+          <ArrowLeftRight className="w-4 h-4 text-primary" />
+          <h3 className="text-xs font-semibold text-foreground">Compare With</h3>
+        </div>
+        <select value={compareMonth} onChange={(e) => setCompareMonth(e.target.value)}
+          className="w-full bg-secondary rounded-lg px-3 py-2 text-xs text-foreground outline-none border border-border focus:border-primary">
+          <option value="">Select a month to compare</option>
+          {recentMonths.filter(m => m !== selectedMonth).map(m => (
+            <option key={m} value={m}>{getShortMonthLabel(m)}</option>
+          ))}
+        </select>
+
+        {comparisonData && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-3 space-y-2">
+            <div className="grid grid-cols-2 gap-2">
+              <div className="bg-secondary rounded-lg p-2 text-center">
+                <p className="text-[9px] text-muted-foreground">{getShortMonthLabel(selectedMonth)}</p>
+                <p className="text-sm font-bold text-foreground">{formatAmount(totalSpend)}</p>
+                <p className="text-[9px] text-muted-foreground">{filteredTxns.length} txns</p>
+              </div>
+              <div className="bg-secondary rounded-lg p-2 text-center">
+                <p className="text-[9px] text-muted-foreground">{getShortMonthLabel(compareMonth)}</p>
+                <p className="text-sm font-bold text-foreground">{formatAmount(comparisonData.total)}</p>
+                <p className="text-[9px] text-muted-foreground">{comparisonData.txnCount} txns</p>
+              </div>
+            </div>
+            {/* Category comparison */}
+            <div className="space-y-1">
+              {categoryData.map(cat => {
+                const compCat = comparisonData.categories.find(c => c.name === cat.name);
+                const diff = compCat ? cat.value - compCat.value : cat.value;
+                return (
+                  <div key={cat.name} className="flex justify-between text-[10px]">
+                    <span className="text-muted-foreground">{cat.name}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-foreground">{formatAmount(cat.value)}</span>
+                      <span className="text-muted-foreground">vs</span>
+                      <span className="text-foreground">{compCat ? formatAmount(compCat.value) : '—'}</span>
+                      <span className={`font-medium ${diff > 0 ? 'text-destructive' : 'text-primary'}`}>
+                        {diff > 0 ? '+' : ''}{formatAmount(Math.abs(diff))}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+      </div>
 
       {/* Financial Health Score */}
       <div className="glass-card p-4 relative">
@@ -190,16 +265,17 @@ const Insights = () => {
           </div>
           <div>
             <p className={`text-sm font-bold ${scoreColor}`}>{scoreLabel}</p>
-            <p className="text-[11px] text-muted-foreground">Based on budget, savings & spending patterns</p>
+            <p className="text-[11px] text-muted-foreground">Based on your credit history, repayments, bureau reports etc.</p>
           </div>
         </div>
         {showScoreInfo && (
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} className="mt-3 p-3 bg-secondary rounded-lg text-[11px] text-muted-foreground space-y-1">
+            <p>• <strong>Credit history & repayments</strong>: Timely repayments improve score</p>
+            <p>• <strong>Bureau reports</strong>: Based on credit bureau data analysis</p>
             <p>• <strong>Budget adherence</strong>: Under 60% = +0, 60-80% = -5, 80-100% = -15, Over = -30</p>
             <p>• <strong>Category balance</strong>: Top category &gt;50% of spend = -10</p>
             <p>• <strong>SIP/Investments</strong>: Active SIP = +5</p>
             <p>• <strong>Cost sharing</strong>: Using splits = +5</p>
-            <p>• <strong>Active tracking</strong>: No transactions = -20</p>
           </motion.div>
         )}
       </div>
@@ -224,7 +300,7 @@ const Insights = () => {
                   <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'hsl(215 12% 50%)' }} />
                   <YAxis tick={{ fontSize: 11, fill: 'hsl(215 12% 50%)' }} tickFormatter={v => formatAmount(v)} />
                   <Tooltip formatter={(v: number) => formatAmount(v)} contentStyle={{ background: 'hsl(220 18% 10%)', border: '1px solid hsl(220 14% 16%)', borderRadius: '8px', fontSize: '12px' }} />
-                  <Line type="monotone" dataKey="spend" stroke="hsl(152 68% 46%)" strokeWidth={2.5} dot={{ fill: 'hsl(152 68% 46%)', r: 4 }} />
+                  <Line type="monotone" dataKey="spend" stroke="hsl(152 68% 46%)" strokeWidth={2.5} dot={{ fill: 'hsl(152 68% 46%)', r: 4 }} activeDot={{ r: 6, stroke: 'hsl(152 68% 46%)', strokeWidth: 2 }} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -245,16 +321,16 @@ const Insights = () => {
             </div>
           </div>
 
-          {/* Spending Distribution */}
+          {/* Spending Distribution - interactive */}
           <div className="glass-card p-4">
             <h3 className="text-sm font-semibold text-foreground mb-3">Spending Distribution</h3>
             <div className="h-48">
               <ResponsiveContainer>
                 <PieChart>
-                  <Pie data={categoryData} cx="50%" cy="50%" outerRadius={80} innerRadius={40} paddingAngle={3} dataKey="value" stroke="none" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
+                  <Pie data={categoryData} cx="50%" cy="50%" outerRadius={80} innerRadius={40} paddingAngle={3} dataKey="value" stroke="none">
                     {categoryData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                   </Pie>
-                  <Tooltip formatter={(v: number) => formatAmount(v)} contentStyle={{ background: 'hsl(220 18% 10%)', border: '1px solid hsl(220 14% 16%)', borderRadius: '8px', fontSize: '12px' }} />
+                  <Tooltip formatter={(v: number, name: string) => [`${formatAmount(v as number)}`, name]} contentStyle={{ background: 'hsl(220 18% 10%)', border: '1px solid hsl(220 14% 16%)', borderRadius: '8px', fontSize: '12px' }} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
@@ -269,10 +345,10 @@ const Insights = () => {
             <div className="h-48">
               <ResponsiveContainer>
                 <PieChart>
-                  <Pie data={paymentData} cx="50%" cy="50%" outerRadius={80} innerRadius={40} paddingAngle={3} dataKey="value" stroke="none" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
+                  <Pie data={paymentData} cx="50%" cy="50%" outerRadius={80} innerRadius={40} paddingAngle={3} dataKey="value" stroke="none">
                     {paymentData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                   </Pie>
-                  <Tooltip formatter={(v: number) => formatAmount(v)} contentStyle={{ background: 'hsl(220 18% 10%)', border: '1px solid hsl(220 14% 16%)', borderRadius: '8px', fontSize: '12px' }} />
+                  <Tooltip formatter={(v: number, name: string) => [`${formatAmount(v as number)}`, name]} contentStyle={{ background: 'hsl(220 18% 10%)', border: '1px solid hsl(220 14% 16%)', borderRadius: '8px', fontSize: '12px' }} />
                 </PieChart>
               </ResponsiveContainer>
             </div>

@@ -47,6 +47,7 @@ export interface AppSettings {
   ocrReceiptScan: boolean;
   budgetAlerts: boolean;
   duplicateDetection: boolean;
+  monthlyBudget: boolean;
 }
 
 interface AppState {
