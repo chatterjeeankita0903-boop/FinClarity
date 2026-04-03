@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowUpRight, Wallet, Settings as SettingsIcon } from 'lucide-react';
-import { useStore, getTotalSpend, getCategoryBreakdown, getActiveTransactions, Category, ALL_CATEGORIES } from '@/store/useStore';
+import { useTransactions } from '@/hooks/useTransactions';
+import { useBudget } from '@/hooks/useBudgets';
 import { BudgetBar } from '@/components/BudgetBar';
 import { NotificationBell } from '@/components/NotificationBell';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
@@ -9,8 +10,8 @@ import { useNavigate } from 'react-router-dom';
 import { getCurrentMonth, getCurrentMonthLabel } from '@/lib/dateUtils';
 import { BudgetEditorSheet } from '@/components/BudgetEditorSheet';
 
+const ALL_CATEGORIES = ['Food', 'Transport', 'Shopping', 'Bills', 'Rent', 'Entertainment', 'Health', 'SIP', 'Travel', 'Education', 'Other'];
 const COLORS = ['#22c55e', '#f97316', '#3b82f6', '#ec4899', '#a855f7', '#eab308', '#14b8a6', '#f43f5e', '#6366f1', '#06b6d4', '#64748b'];
-
 const CATEGORY_EMOJI: Record<string, string> = {
   Food: '🍕', Transport: '🚗', Shopping: '🛍️', Bills: '📃', Rent: '🏠',
   Entertainment: '🎬', Health: '💊', SIP: '📈', Travel: '✈️', Education: '📚', Other: '💰',
@@ -28,7 +29,9 @@ const CustomPieTooltip = ({ active, payload }: any) => {
     const data = payload[0];
     return (
       <div className="px-3 py-2" style={CHART_TOOLTIP_STYLE}>
-        <p className="text-xs font-semibold" style={{ color: 'hsl(var(--chart-tooltip-foreground))' }}>{data.name}: ₹{data.value >= 1000 ? (data.value / 1000).toFixed(1) + 'K' : data.value}</p>
+        <p className="text-xs font-semibold" style={{ color: 'hsl(var(--chart-tooltip-foreground))' }}>
+          {data.name}: ₹{data.value >= 1000 ? (data.value / 1000).toFixed(1) + 'K' : data.value}
+        </p>
       </div>
     );
   }
@@ -37,21 +40,29 @@ const CustomPieTooltip = ({ active, payload }: any) => {
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const transactions = useStore(s => s.transactions);
-  const budget = useStore(s => s.budget);
-  const settings = useStore(s => s.settings);
+  const { data: transactions = [], isLoading } = useTransactions();
   const currentMonth = getCurrentMonth();
-  const totalSpend = useMemo(() => getTotalSpend(transactions, currentMonth), [transactions, currentMonth]);
-  const totalSpendAllTime = useMemo(() => getTotalSpend(transactions), [transactions]);
-  const categoryData = useMemo(() => getCategoryBreakdown(transactions, currentMonth), [transactions, currentMonth]);
-  const chartData = useMemo(() => categoryData.filter((item) => item.value > 0), [categoryData]);
-  const txns = useMemo(() => getActiveTransactions(transactions), [transactions]);
-  const txnCount = useMemo(() => txns.filter(t => t.date.startsWith(currentMonth)).length, [txns, currentMonth]);
-  const categoryChartKey = useMemo(() => chartData.map(({ name, value }) => `${name}:${value}`).join('|'), [chartData]);
-
+  const { data: budgetData } = useBudget(currentMonth);
   const [showBudgetEditor, setShowBudgetEditor] = useState(false);
 
-  // All categories with budget info
+  const monthTxns = useMemo(() => transactions.filter(t => t.date.startsWith(currentMonth)), [transactions, currentMonth]);
+  const totalSpend = useMemo(() => monthTxns.reduce((s, t) => s + Number(t.amount), 0), [monthTxns]);
+  const totalSpendAllTime = useMemo(() => transactions.reduce((s, t) => s + Number(t.amount), 0), [transactions]);
+
+  const categoryData = useMemo(() => {
+    const map: Record<string, number> = {};
+    monthTxns.forEach(t => { map[t.category] = (map[t.category] || 0) + Number(t.amount); });
+    return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+  }, [monthTxns]);
+
+  const chartData = useMemo(() => categoryData.filter(d => d.value > 0), [categoryData]);
+  const categoryChartKey = useMemo(() => chartData.map(({ name, value }) => `${name}:${value}`).join('|'), [chartData]);
+
+  const budget = {
+    overall: budgetData?.overall_budget ?? 0,
+    categories: (budgetData?.category_budgets ?? {}) as Record<string, number>,
+  };
+
   const allCategoryData = useMemo(() => {
     const spendMap: Record<string, number> = {};
     categoryData.forEach(c => { spendMap[c.name] = c.value; });
@@ -68,32 +79,36 @@ const Dashboard = () => {
     return `₹${n.toLocaleString('en-IN')}`;
   };
 
-  const budgetEnabled = settings.monthlyBudget && budget.overall > 0;
+  const budgetEnabled = budget.overall > 0;
+
+  if (isLoading) return (
+    <div className="min-h-dvh flex items-center justify-center">
+      <div className="w-8 h-8 border-3 border-primary/30 border-t-primary rounded-full animate-spin" />
+    </div>
+  );
 
   return (
     <div className="px-4 pt-14 safe-bottom flex flex-col gap-3 overflow-y-auto" style={{ minHeight: '100dvh' }}>
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <p className="text-xs text-muted-foreground">{getCurrentMonthLabel()}</p>
           <h1 className="text-xl font-bold text-foreground">FinClarity</h1>
         </div>
         <div className="flex items-center gap-2">
-          {settings.budgetAlerts && <NotificationBell />}
+          <NotificationBell />
           <button onClick={() => navigate('/settings')} className="p-2 rounded-xl bg-secondary text-muted-foreground">
             <SettingsIcon className="w-4 h-4" />
           </button>
         </div>
       </div>
 
-      {/* Total Spend Cards */}
       <div className="grid grid-cols-2 gap-3">
         <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="glass-card p-3 glow">
           <p className="text-[10px] text-muted-foreground mb-0.5">This Month</p>
           <h2 className="text-lg sm:text-xl font-extrabold text-gradient">{formatAmount(totalSpend)}</h2>
           <div className="flex items-center gap-1 text-primary text-[10px] font-medium mt-0.5">
             <ArrowUpRight className="w-3 h-3" />
-            {txnCount} txns
+            {monthTxns.length} txns
           </div>
         </motion.div>
         <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.05 }} className="glass-card p-3">
@@ -103,7 +118,6 @@ const Dashboard = () => {
         </motion.div>
       </div>
 
-      {/* Monthly Budget - or prompt to set */}
       {budgetEnabled ? (
         <BudgetBar />
       ) : (
@@ -113,7 +127,6 @@ const Dashboard = () => {
         </div>
       )}
 
-      {/* Manage Budget CTA */}
       <button onClick={() => setShowBudgetEditor(true)} className="glass-card p-3 flex items-center justify-between gap-3 w-full text-left">
         <div className="flex items-center gap-2">
           <Wallet className="w-4 h-4 text-primary" />
@@ -122,9 +135,7 @@ const Dashboard = () => {
         <span className="shrink-0 rounded-full bg-primary/10 px-3 py-1 text-[11px] font-semibold text-primary">Edit →</span>
       </button>
 
-      {/* Side-by-side: Category Budget Usage + Pie Chart */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {/* Category Budget Usage - all categories */}
         <div className="glass-card p-3">
           <h3 className="text-[10px] font-semibold text-foreground mb-2">Category Budget</h3>
           <div className="space-y-1 max-h-48 overflow-y-auto">
@@ -157,7 +168,6 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* By Category pie - always show */}
         <div className="glass-card p-3">
           <h3 className="text-[10px] font-semibold text-foreground mb-2">By Category</h3>
           {chartData.length > 0 ? (
@@ -172,7 +182,6 @@ const Dashboard = () => {
                   </PieChart>
                 </ResponsiveContainer>
               </div>
-              {/* Category list below pie - descending order */}
               <div className="space-y-0.5 mt-2 max-h-24 overflow-y-auto">
                 {chartData.map((item, i) => (
                   <div key={item.name} className="flex items-center justify-between text-[9px]">
