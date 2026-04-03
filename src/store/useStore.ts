@@ -139,12 +139,30 @@ export const useStore = create<AppState>()(
         });
       },
 
-      settleUp: (groupId, memberId) => set({
-        transactions: get().transactions.map(t => {
-          if (t.groupId !== groupId) return t;
-          return { ...t, splits: t.splits.map(s => s.id === memberId ? { ...s, settled: true } : s) };
-        })
-      }),
+      settleUp: (groupId, memberId) => {
+        const state = get();
+        const group = state.groups.find(g => g.id === groupId);
+        if (!group) return;
+        const member = group.members.find(m => m.id === memberId);
+        if (!member) return;
+        const memberNameLower = member.name.toLowerCase();
+
+        set({
+          transactions: state.transactions.map(t => {
+            // Match by groupId OR by member name in splits (for transactions linked by name)
+            const belongsToGroup = t.groupId === groupId ||
+              t.splits.some(s => group.members.some(gm => gm.name.toLowerCase() === s.name.toLowerCase()));
+            if (!belongsToGroup) return t;
+            return {
+              ...t,
+              groupId: t.groupId || groupId, // ensure groupId is set
+              splits: t.splits.map(s =>
+                s.name.toLowerCase() === memberNameLower ? { ...s, settled: true } : s
+              ),
+            };
+          }),
+        });
+      },
 
       addGroup: (g) => set({
         groups: [...get().groups, { ...g, id: generateId(), createdAt: new Date().toISOString().split('T')[0] }]

@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
 import { Users, Plus, X, Trash2, ChevronDown, ChevronUp, Check } from 'lucide-react';
-import { useStore, Transaction } from '@/store/useStore';
+import { useStore } from '@/store/useStore';
 import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'sonner';
 
 interface MemberBalance {
   id: string;
