@@ -262,36 +262,38 @@ const Groups = () => {
               initial={{ y: '100%' }}
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
-              className="w-full max-w-lg bg-card border-t border-border rounded-t-2xl p-6"
+              className="w-full max-w-lg bg-card border-t border-border rounded-t-2xl p-6 flex flex-col max-h-[85vh]"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-4 flex-shrink-0">
                 <h3 className="text-lg font-bold text-foreground">Create Group</h3>
                 <button onClick={() => setShowCreate(false)} className="text-muted-foreground"><X className="w-5 h-5" /></button>
               </div>
 
-              <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Group name" className="w-full bg-secondary rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground outline-none border border-border focus:border-primary mb-4" />
+              <div className="overflow-y-auto flex-1 min-h-0">
+                <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Group name" className="w-full bg-secondary rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground outline-none border border-border focus:border-primary mb-4" />
 
-              <p className="text-xs text-muted-foreground mb-2">Members</p>
-              <div className="space-y-2 mb-4">
-                {newMembers.map((m, i) => (
-                  <div key={i} className="flex gap-2">
-                    <input
-                      value={m}
-                      onChange={(e) => { const n = [...newMembers]; n[i] = e.target.value; setNewMembers(n); }}
-                      placeholder="Member name"
-                      className="flex-1 bg-secondary rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none border border-border focus:border-primary"
-                    />
-                    {newMembers.length > 1 && (
-                      <button onClick={() => setNewMembers(newMembers.filter((_, j) => j !== i))} className="text-muted-foreground hover:text-destructive"><X className="w-4 h-4" /></button>
-                    )}
-                  </div>
-                ))}
+                <p className="text-xs text-muted-foreground mb-2">Members</p>
+                <div className="space-y-2 mb-4">
+                  {newMembers.map((m, i) => (
+                    <div key={i} className="flex gap-2">
+                      <input
+                        value={m}
+                        onChange={(e) => { const n = [...newMembers]; n[i] = e.target.value; setNewMembers(n); }}
+                        placeholder="Member name"
+                        className="flex-1 bg-secondary rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none border border-border focus:border-primary"
+                      />
+                      {newMembers.length > 1 && (
+                        <button onClick={() => setNewMembers(newMembers.filter((_, j) => j !== i))} className="text-muted-foreground hover:text-destructive"><X className="w-4 h-4" /></button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                <button onClick={() => setNewMembers([...newMembers, ''])} className="text-sm text-primary flex items-center gap-1 mb-4"><Plus className="w-4 h-4" /> Add member</button>
               </div>
 
-              <button onClick={() => setNewMembers([...newMembers, ''])} className="text-sm text-primary flex items-center gap-1 mb-4"><Plus className="w-4 h-4" /> Add member</button>
-
-              <button onClick={handleCreate} className="w-full gradient-primary text-primary-foreground font-semibold py-3 rounded-xl">Create Group</button>
+              <button onClick={handleCreate} className="w-full gradient-primary text-primary-foreground font-semibold py-3 rounded-xl flex-shrink-0 mt-2">Create Group</button>
             </motion.div>
           </div>
         )}

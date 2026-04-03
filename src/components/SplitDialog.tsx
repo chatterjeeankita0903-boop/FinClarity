@@ -59,90 +59,94 @@ export const SplitDialog = ({ transaction, onClose }: Props) => {
         initial={{ y: '100%' }}
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
-        className="w-full max-w-lg bg-card border-t border-border rounded-t-2xl p-6"
+        className="w-full max-w-lg bg-card border-t border-border rounded-t-2xl p-6 flex flex-col max-h-[85vh]"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-4 flex-shrink-0">
           <h3 className="text-lg font-bold text-foreground">Split ₹{transaction.amount.toLocaleString('en-IN')}</h3>
           <button onClick={onClose} className="text-muted-foreground"><X className="w-5 h-5" /></button>
         </div>
 
-        {/* Group Selector */}
-        {groups.length > 0 && (
-          <div className="mb-4">
-            <p className="text-xs text-muted-foreground mb-2">Split with a group</p>
-            <div className="flex gap-2 flex-wrap">
-              <button
-                onClick={() => handleGroupSelect('')}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors border ${
-                  !selectedGroupId
-                    ? 'border-primary bg-primary/10 text-primary'
-                    : 'border-border bg-secondary text-secondary-foreground'
-                }`}
-              >
-                Custom
-              </button>
-              {groups.map(g => (
+        <div className="overflow-y-auto flex-1 min-h-0">
+          {/* Group Selector */}
+          {groups.length > 0 && (
+            <div className="mb-4">
+              <p className="text-xs text-muted-foreground mb-2">Split with a group</p>
+              <div className="flex gap-2 flex-wrap">
                 <button
-                  key={g.id}
-                  onClick={() => handleGroupSelect(g.id)}
+                  onClick={() => handleGroupSelect('')}
                   className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors border ${
-                    selectedGroupId === g.id
+                    !selectedGroupId
                       ? 'border-primary bg-primary/10 text-primary'
                       : 'border-border bg-secondary text-secondary-foreground'
                   }`}
                 >
-                  <Users className="w-3.5 h-3.5" />
-                  {g.name}
+                  Custom
                 </button>
-              ))}
+                {groups.map(g => (
+                  <button
+                    key={g.id}
+                    onClick={() => handleGroupSelect(g.id)}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors border ${
+                      selectedGroupId === g.id
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-border bg-secondary text-secondary-foreground'
+                    }`}
+                  >
+                    <Users className="w-3.5 h-3.5" />
+                    {g.name}
+                  </button>
+                ))}
+              </div>
             </div>
+          )}
+
+          <div className="flex gap-2 mb-4">
+            <button onClick={() => setMode('equal')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${mode === 'equal' ? 'gradient-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground'}`}>Equal</button>
+            <button onClick={() => setMode('custom')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${mode === 'custom' ? 'gradient-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground'}`}>Custom</button>
           </div>
-        )}
 
-        <div className="flex gap-2 mb-4">
-          <button onClick={() => setMode('equal')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${mode === 'equal' ? 'gradient-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground'}`}>Equal</button>
-          <button onClick={() => setMode('custom')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${mode === 'custom' ? 'gradient-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground'}`}>Custom</button>
-        </div>
-
-        <div className="space-y-3 max-h-48 overflow-y-auto mb-4">
-          {members.map((m, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <input
-                value={m.name}
-                onChange={(e) => { const n = [...members]; n[i].name = e.target.value; setMembers(n); }}
-                placeholder="Name"
-                className="flex-1 bg-secondary rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none border border-border focus:border-primary"
-              />
-              {mode === 'custom' && (
+          <div className="space-y-3 mb-4">
+            {members.map((m, i) => (
+              <div key={i} className="flex items-center gap-2">
                 <input
-                  type="number"
-                  value={m.share || ''}
-                  onChange={(e) => { const n = [...members]; n[i].share = Number(e.target.value); setMembers(n); }}
-                  placeholder="₹"
-                  className="w-24 bg-secondary rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none border border-border focus:border-primary"
+                  value={m.name}
+                  onChange={(e) => { const n = [...members]; n[i].name = e.target.value; setMembers(n); }}
+                  placeholder="Name"
+                  className="flex-1 bg-secondary rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none border border-border focus:border-primary"
                 />
-              )}
-              {mode === 'equal' && <span className="text-sm font-medium text-primary w-24 text-right">₹{equalShare.toLocaleString('en-IN')}</span>}
-              <button onClick={() => setMembers(members.filter((_, j) => j !== i))} className="text-muted-foreground hover:text-destructive"><Trash2 className="w-4 h-4" /></button>
-            </div>
-          ))}
-        </div>
-
-        <button onClick={() => setMembers([...members, { name: '', share: 0 }])} className="flex items-center gap-1 text-sm text-primary mb-4">
-          <Plus className="w-4 h-4" /> Add person
-        </button>
-
-        <div className="glass-elevated p-3 rounded-lg mb-4">
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Your share</span>
-            <span className={`font-bold ${yourShare < 0 ? 'text-destructive' : 'text-primary'}`}>₹{yourShare.toLocaleString('en-IN')}</span>
+                {mode === 'custom' && (
+                  <input
+                    type="number"
+                    value={m.share || ''}
+                    onChange={(e) => { const n = [...members]; n[i].share = Number(e.target.value); setMembers(n); }}
+                    placeholder="₹"
+                    className="w-24 bg-secondary rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none border border-border focus:border-primary"
+                  />
+                )}
+                {mode === 'equal' && <span className="text-sm font-medium text-primary w-24 text-right">₹{equalShare.toLocaleString('en-IN')}</span>}
+                <button onClick={() => setMembers(members.filter((_, j) => j !== i))} className="text-muted-foreground hover:text-destructive"><Trash2 className="w-4 h-4" /></button>
+              </div>
+            ))}
           </div>
+
+          <button onClick={() => setMembers([...members, { name: '', share: 0 }])} className="flex items-center gap-1 text-sm text-primary mb-4">
+            <Plus className="w-4 h-4" /> Add person
+          </button>
         </div>
 
-        <button onClick={handleSplit} disabled={yourShare < 0} className="w-full gradient-primary text-primary-foreground font-semibold py-3 rounded-xl disabled:opacity-50">
-          Split Expense
-        </button>
+        <div className="flex-shrink-0 pt-3">
+          <div className="glass-elevated p-3 rounded-lg mb-3">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Your share</span>
+              <span className={`font-bold ${yourShare < 0 ? 'text-destructive' : 'text-primary'}`}>₹{yourShare.toLocaleString('en-IN')}</span>
+            </div>
+          </div>
+
+          <button onClick={handleSplit} disabled={yourShare < 0} className="w-full gradient-primary text-primary-foreground font-semibold py-3 rounded-xl disabled:opacity-50">
+            Split Expense
+          </button>
+        </div>
       </motion.div>
     </div>
   );
