@@ -21,6 +21,7 @@ const Settings = () => {
     { key: 'ocrReceiptScan' as const, icon: Camera, label: 'OCR Receipt Scan', desc: 'Camera bill extraction', color: 'text-info' },
     { key: 'budgetAlerts' as const, icon: Bell, label: 'Budget Alerts', desc: 'Alert at 80% & 100%', color: 'text-destructive' },
     { key: 'duplicateDetection' as const, icon: Shield, label: 'Duplicate Detection', desc: 'Prevent double-entries', color: 'text-primary' },
+    { key: 'monthlyBudget' as const, icon: Wallet, label: 'Monthly Budget', desc: 'Enable monthly budget tracking', color: 'text-accent' },
   ];
 
   const accountItems = [
@@ -110,7 +111,7 @@ const Settings = () => {
               ))}
             </div>
 
-            <button onClick={saveBudget} className="w-full gradient-primary text-primary-foreground font-semibold py-3 rounded-xl">Save Budgets</button>
+            <button onClick={saveBudget} className="w-full gradient-primary text-primary-foreground font-semibold py-3 rounded-xl">Set Budget</button>
           </motion.div>
         </div>
       )}

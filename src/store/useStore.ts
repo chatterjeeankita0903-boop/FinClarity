@@ -47,6 +47,7 @@ export interface AppSettings {
   ocrReceiptScan: boolean;
   budgetAlerts: boolean;
   duplicateDetection: boolean;
+  monthlyBudget: boolean;
 }
 
 interface AppState {
@@ -92,7 +93,7 @@ export const useStore = create<AppState>()(
         { id: 'g2', name: 'Trip Goa', members: [{ id: 'm3', name: 'Priya' }, { id: 'm4', name: 'Sneha' }], createdAt: '2026-03-15' },
       ],
       budget: { overall: 50000, categories: { Food: 8000, Transport: 5000, Shopping: 10000, Entertainment: 3000 } },
-      settings: { smsIntelligence: true, aiCategorisation: true, ocrReceiptScan: true, budgetAlerts: true, duplicateDetection: true },
+      settings: { smsIntelligence: true, aiCategorisation: true, ocrReceiptScan: true, budgetAlerts: true, duplicateDetection: true, monthlyBudget: true },
 
       addTransaction: (t) => {
         const state = get();
