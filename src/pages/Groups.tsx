@@ -257,20 +257,20 @@ const Groups = () => {
       {/* Create Group Modal */}
       <AnimatePresence>
         {showCreate && (
-          <div className="fixed inset-0 z-50 flex items-end justify-center bg-background/60 backdrop-blur-sm" onClick={() => setShowCreate(false)}>
+          <div className="sheet-overlay" onClick={() => setShowCreate(false)}>
             <motion.div
               initial={{ y: '100%' }}
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
-              className="w-full max-w-lg bg-card border-t border-border rounded-t-2xl p-6 flex flex-col max-h-[85vh]"
+              className="sheet-panel"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between mb-4 flex-shrink-0">
+              <div className="flex items-center justify-between px-6 pt-6 pb-4 flex-shrink-0">
                 <h3 className="text-lg font-bold text-foreground">Create Group</h3>
                 <button onClick={() => setShowCreate(false)} className="text-muted-foreground"><X className="w-5 h-5" /></button>
               </div>
 
-              <div className="overflow-y-auto flex-1 min-h-0">
+              <div className="sheet-body px-6">
                 <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Group name" className="w-full bg-secondary rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground outline-none border border-border focus:border-primary mb-4" />
 
                 <p className="text-xs text-muted-foreground mb-2">Members</p>
@@ -293,7 +293,9 @@ const Groups = () => {
                 <button onClick={() => setNewMembers([...newMembers, ''])} className="text-sm text-primary flex items-center gap-1 mb-4"><Plus className="w-4 h-4" /> Add member</button>
               </div>
 
-              <button onClick={handleCreate} className="w-full gradient-primary text-primary-foreground font-semibold py-3 rounded-xl flex-shrink-0 mt-2">Create Group</button>
+              <div className="sheet-footer">
+                <button onClick={handleCreate} className="w-full min-h-12 gradient-primary text-primary-foreground font-semibold py-3 rounded-xl">Create Group</button>
+              </div>
             </motion.div>
           </div>
         )}

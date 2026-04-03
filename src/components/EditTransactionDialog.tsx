@@ -25,19 +25,19 @@ export const EditTransactionDialog = ({ transaction, onClose }: { transaction: T
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-background/60 backdrop-blur-sm" onClick={onClose}>
+    <div className="sheet-overlay" onClick={onClose}>
       <motion.div
         initial={{ y: '100%' }}
         animate={{ y: 0 }}
-        className="w-full max-w-lg bg-card border-t border-border rounded-t-2xl p-6 flex flex-col max-h-[85vh]"
+        className="sheet-panel"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between mb-4 flex-shrink-0">
+        <div className="flex items-center justify-between px-6 pt-6 pb-4 flex-shrink-0">
           <h3 className="text-lg font-bold text-foreground">Edit Transaction</h3>
           <button onClick={onClose} className="text-muted-foreground"><X className="w-5 h-5" /></button>
         </div>
 
-        <div className="space-y-3 overflow-y-auto flex-1 min-h-0">
+        <div className="sheet-body px-6 space-y-3">
           <input value={form.merchant} onChange={(e) => setForm({ ...form, merchant: e.target.value })} placeholder="Merchant" className="w-full bg-secondary rounded-lg px-3 py-2.5 text-sm text-foreground outline-none border border-border focus:border-primary" />
           <input type="number" value={form.amount} onChange={(e) => setForm({ ...form, amount: Number(e.target.value) })} placeholder="Amount" className="w-full bg-secondary rounded-lg px-3 py-2.5 text-sm text-foreground outline-none border border-border focus:border-primary" />
           <input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className="w-full bg-secondary rounded-lg px-3 py-2.5 text-sm text-foreground outline-none border border-border focus:border-primary" />
@@ -49,9 +49,11 @@ export const EditTransactionDialog = ({ transaction, onClose }: { transaction: T
           </select>
         </div>
 
-        <button onClick={handleSave} className="w-full gradient-primary text-primary-foreground font-semibold py-3 rounded-xl mt-4 flex-shrink-0">
-          Save Changes
-        </button>
+        <div className="sheet-footer">
+          <button onClick={handleSave} className="w-full min-h-12 gradient-primary text-primary-foreground font-semibold py-3 rounded-xl">
+            Save Changes
+          </button>
+        </div>
       </motion.div>
     </div>
   );

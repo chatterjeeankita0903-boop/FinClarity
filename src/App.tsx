@@ -19,7 +19,7 @@ const App = () => (
     <TooltipProvider>
       <Sonner position="top-center" toastOptions={{ className: 'bg-card border-border text-foreground' }} />
       <BrowserRouter>
-        <div className="max-w-lg mx-auto min-h-screen relative">
+        <div className="app-shell">
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/transactions" element={<Transactions />} />

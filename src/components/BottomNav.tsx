@@ -15,8 +15,8 @@ export const BottomNav = () => {
   const navigate = useNavigate();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card/95 backdrop-blur-xl border-t border-border/50">
-      <div className="flex items-center justify-around max-w-lg mx-auto px-2 pb-[max(env(safe-area-inset-bottom),8px)] pt-2">
+    <nav className="fixed bottom-0 left-1/2 z-40 w-full max-w-[480px] -translate-x-1/2 bg-card/95 backdrop-blur-xl border-t border-border/50">
+      <div className="flex min-h-[80px] items-center justify-around px-2 pb-[max(env(safe-area-inset-bottom),8px)] pt-2">
         {tabs.map((tab) => {
           const active = location.pathname === tab.path;
           const Icon = tab.icon;
