@@ -1,13 +1,13 @@
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowUpRight, Wallet, Settings as SettingsIcon } from 'lucide-react';
+import { ArrowUpRight, Wallet, Settings as SettingsIcon, ChevronDown } from 'lucide-react';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useBudget } from '@/hooks/useBudgets';
 import { BudgetBar } from '@/components/BudgetBar';
 import { NotificationBell } from '@/components/NotificationBell';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { useNavigate } from 'react-router-dom';
-import { getCurrentMonth, getCurrentMonthLabel } from '@/lib/dateUtils';
+import { getCurrentMonth, getShortMonthLabel, getMonthLabel } from '@/lib/dateUtils';
 import { BudgetEditorSheet } from '@/components/BudgetEditorSheet';
 
 const ALL_CATEGORIES = ['Food', 'Transport', 'Shopping', 'Bills', 'Rent', 'Entertainment', 'Health', 'SIP', 'Travel', 'Education', 'Other'];
@@ -41,11 +41,21 @@ const CustomPieTooltip = ({ active, payload }: any) => {
 const Dashboard = () => {
   const navigate = useNavigate();
   const { data: transactions = [], isLoading } = useTransactions();
-  const currentMonth = getCurrentMonth();
-  const { data: budgetData } = useBudget(currentMonth);
   const [showBudgetEditor, setShowBudgetEditor] = useState(false);
+  const [showMonthPicker, setShowMonthPicker] = useState(false);
 
-  const monthTxns = useMemo(() => transactions.filter(t => t.date.startsWith(currentMonth)), [transactions, currentMonth]);
+  // Dynamic month list
+  const availableMonths = useMemo(() => {
+    const months = new Set<string>();
+    months.add(getCurrentMonth());
+    transactions.forEach(t => months.add(t.date.substring(0, 7)));
+    return Array.from(months).sort().reverse();
+  }, [transactions]);
+
+  const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth());
+  const { data: budgetData } = useBudget(selectedMonth);
+
+  const monthTxns = useMemo(() => transactions.filter(t => t.date.startsWith(selectedMonth)), [transactions, selectedMonth]);
   const totalSpend = useMemo(() => monthTxns.reduce((s, t) => s + Number(t.amount), 0), [monthTxns]);
   const totalSpendAllTime = useMemo(() => transactions.reduce((s, t) => s + Number(t.amount), 0), [transactions]);
 
@@ -91,7 +101,24 @@ const Dashboard = () => {
     <div className="px-4 pt-14 safe-bottom flex flex-col gap-3 overflow-y-auto" style={{ minHeight: '100dvh' }}>
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs text-muted-foreground">{getCurrentMonthLabel()}</p>
+          {/* Month selector */}
+          <div className="relative">
+            <button onClick={() => setShowMonthPicker(!showMonthPicker)}
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
+              {getMonthLabel(selectedMonth)}
+              <ChevronDown className="w-3 h-3" />
+            </button>
+            {showMonthPicker && (
+              <div className="absolute top-6 left-0 bg-card border border-border rounded-xl shadow-lg z-50 py-1 min-w-[140px]">
+                {availableMonths.map(m => (
+                  <button key={m} onClick={() => { setSelectedMonth(m); setShowMonthPicker(false); }}
+                    className={`w-full text-left px-4 py-2 text-xs hover:bg-secondary transition-colors ${m === selectedMonth ? 'text-primary font-semibold' : 'text-foreground'}`}>
+                    {getMonthLabel(m)}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <h1 className="text-xl font-bold text-foreground">FinClarity</h1>
         </div>
         <div className="flex items-center gap-2">

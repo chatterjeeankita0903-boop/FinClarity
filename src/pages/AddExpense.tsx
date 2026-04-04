@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Keyboard, ArrowLeft } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { useAddTransaction } from '@/hooks/useTransactions';
+import { useAddGroupExpense } from '@/hooks/useGroups';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
+import { SplitDialog } from '@/components/SplitDialog';
 
 const CATEGORIES = ['Food', 'Transport', 'Shopping', 'Bills', 'Rent', 'Entertainment', 'Health', 'SIP', 'Travel', 'Education', 'Other'];
 const PAYMENT_MODES = ['UPI', 'Credit Card', 'Debit Card', 'Cash', 'Net Banking'];
@@ -15,6 +17,8 @@ const CATEGORY_EMOJI: Record<string, string> = {
 const AddExpense = () => {
   const navigate = useNavigate();
   const addMutation = useAddTransaction();
+  const addGroupExpenseMutation = useAddGroupExpense();
+  const [showSplit, setShowSplit] = useState(false);
   const [form, setForm] = useState({
     name: '',
     amount: '',
@@ -40,14 +44,41 @@ const AddExpense = () => {
     });
   };
 
+  const handleSplitConfirm = (splits: { name: string; amount: number }[], groupId?: string) => {
+    // Add the main transaction
+    addMutation.mutate({
+      name: form.name,
+      amount: Number(form.amount),
+      category: form.category,
+      payment_method: form.payment_method,
+      date: form.date,
+    });
+
+    // If group selected, add as group expense too
+    if (groupId) {
+      addGroupExpenseMutation.mutate({
+        group_id: groupId,
+        description: form.name,
+        amount: Number(form.amount),
+        paid_by: 'You',
+        split_among: splits.map(s => ({ name: s.name, share: s.amount })),
+        date: form.date,
+      });
+    }
+
+    toast.success('Expense split added!');
+    setShowSplit(false);
+    navigate('/transactions');
+  };
+
   return (
-    <div className="px-4 pt-14 pb-20 safe-bottom" style={{ maxHeight: 'calc(100vh - 56px)', overflow: 'auto' }}>
+    <div className="px-4 pt-14 pb-24 safe-bottom overflow-y-auto" style={{ maxHeight: 'calc(100dvh - 56px)' }}>
       <div className="flex items-center gap-3 mb-3">
         <button onClick={() => navigate(-1)} className="text-muted-foreground"><ArrowLeft className="w-5 h-5" /></button>
         <h1 className="text-xl font-bold text-foreground">Add Expense</h1>
       </div>
 
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-2">
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="text-[10px] text-muted-foreground mb-0.5 block">Name</label>
@@ -86,10 +117,27 @@ const AddExpense = () => {
           </div>
         </div>
 
-        <button onClick={handleSubmit} disabled={addMutation.isPending} className="w-full gradient-primary text-primary-foreground font-bold py-3 rounded-xl text-sm disabled:opacity-50">
+        {/* Split Expense Button */}
+        {Number(form.amount) > 0 && (
+          <button onClick={() => setShowSplit(true)}
+            className="w-full py-2.5 rounded-xl border border-primary/30 bg-primary/5 text-primary text-sm font-semibold">
+            Split Expense
+          </button>
+        )}
+
+        <button onClick={handleSubmit} disabled={addMutation.isPending}
+          className="w-full gradient-primary text-primary-foreground font-bold py-3 rounded-xl text-sm disabled:opacity-50">
           {addMutation.isPending ? 'Adding...' : 'Add Expense'}
         </button>
       </motion.div>
+
+      {showSplit && (
+        <SplitDialog
+          amount={Number(form.amount)}
+          onClose={() => setShowSplit(false)}
+          onConfirm={handleSplitConfirm}
+        />
+      )}
     </div>
   );
 };
