@@ -1,254 +1,258 @@
 import { useState, useMemo } from 'react';
-import { Users, Plus, X, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
-import { useGroups, useAddGroup, useDeleteGroup, useGroupExpenses, useAddGroupExpense, useSettlements, useAddSettlement, Group } from '@/hooks/useGroups';
+import { Users, Plus, X, Trash2, ChevronDown, ChevronUp, Check } from 'lucide-react';
+import { useStore } from '@/store/useStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 
-const GroupDetail = ({ group, onClose }: { group: Group; onClose: () => void }) => {
-  const members = (group.members as { name: string }[]) || [];
-  const { data: expenses = [] } = useGroupExpenses(group.id);
-  const { data: settlements = [] } = useSettlements(group.id);
-  const deleteGroupMutation = useDeleteGroup();
-  const addExpenseMutation = useAddGroupExpense();
-  const addSettlementMutation = useAddSettlement();
+interface MemberBalance {
+  id: string;
+  name: string;
+  amount: number;
+  settled: boolean;
+}
 
-  const [showAddExpense, setShowAddExpense] = useState(false);
-  const [expForm, setExpForm] = useState({ description: '', amount: '', paid_by: 'You', date: new Date().toISOString().split('T')[0] });
+const Groups = () => {
+  const { groups, addGroup, deleteGroup, transactions, settleUp } = useStore();
+  const [showCreate, setShowCreate] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newMembers, setNewMembers] = useState(['']);
+  const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
 
-  // Calculate balances: who owes what (resets on settlement)
-  const lastSettlement = settlements.length > 0 ? settlements.sort((a, b) => b.settled_at.localeCompare(a.settled_at))[0] : null;
-  const lastSettledAt = lastSettlement?.settled_at || '1970-01-01';
-
-  const unsettledExpenses = useMemo(() =>
-    expenses.filter(e => e.date > lastSettledAt.substring(0, 10)),
-    [expenses, lastSettledAt]
-  );
-
-  const memberBalances = useMemo(() => {
-    const balances: Record<string, number> = {};
-    members.forEach(m => { balances[m.name] = 0; });
-    balances['You'] = 0;
-
-    unsettledExpenses.forEach(e => {
-      const splits = (e.split_among as { name: string; share: number }[]) || [];
-      const totalSplits = splits.reduce((s, sp) => s + sp.share, 0);
-      const payerShare = Number(e.amount) - totalSplits;
-
-      // payer paid for everyone, so others owe their shares
-      splits.forEach(sp => {
-        if (sp.name !== e.paid_by) {
-          balances[sp.name] = (balances[sp.name] || 0) + sp.share;
-        }
-      });
+  const handleCreate = () => {
+    if (!newName.trim() || newMembers.every(m => !m.trim())) return;
+    addGroup({
+      name: newName,
+      members: newMembers.filter(m => m.trim()).map((name, i) => ({ id: `m-${Date.now()}-${i}`, name })),
     });
-
-    return members.map(m => ({
-      name: m.name,
-      owes: balances[m.name] || 0,
-    }));
-  }, [unsettledExpenses, members]);
-
-  // Individual expenses (all time, never reset)
-  const individualTotals = useMemo(() => {
-    const totals: Record<string, number> = {};
-    members.forEach(m => { totals[m.name] = 0; });
-    totals['You'] = 0;
-
-    expenses.forEach(e => {
-      const splits = (e.split_among as { name: string; share: number }[]) || [];
-      splits.forEach(sp => {
-        totals[sp.name] = (totals[sp.name] || 0) + sp.share;
-      });
-      // Add payer's share
-      const totalSplit = splits.reduce((s, sp) => s + sp.share, 0);
-      const payerShare = Number(e.amount) - totalSplit;
-      totals[e.paid_by] = (totals[e.paid_by] || 0) + payerShare;
-    });
-
-    return members.map(m => ({ name: m.name, total: totals[m.name] || 0 }));
-  }, [expenses, members]);
-
-  const totalOwed = memberBalances.reduce((s, m) => s + m.owes, 0);
-
-  const handleSettle = () => {
-    addSettlementMutation.mutate({ group_id: group.id, amount: totalOwed }, {
-      onSuccess: () => toast.success('✅ Settled up successfully'),
-    });
+    setNewName('');
+    setNewMembers(['']);
+    setShowCreate(false);
   };
 
-  const handleAddExpense = () => {
-    if (!expForm.description || !expForm.amount) return;
-    const amt = Number(expForm.amount);
-    const allPeople = ['You', ...members.map(m => m.name)];
-    const perPerson = Math.floor(amt / allPeople.length);
-    const splits = members.map(m => ({ name: m.name, share: perPerson }));
+  // Compute member balances & individual expenses
+  const groupData = useMemo(() => {
+    const data: Record<string, { balances: MemberBalance[]; memberExpenses: Record<string, number>; myExpenses: number }> = {};
 
-    addExpenseMutation.mutate({
-      group_id: group.id,
-      description: expForm.description,
-      amount: amt,
-      paid_by: expForm.paid_by,
-      split_among: splits,
-      date: expForm.date,
-    }, {
-      onSuccess: () => {
-        setExpForm({ description: '', amount: '', paid_by: 'You', date: new Date().toISOString().split('T')[0] });
-        setShowAddExpense(false);
-        toast.success('Expense added!');
-      },
+    groups.forEach(g => {
+      const memberNames = g.members.map(m => m.name.toLowerCase());
+      const groupTxns = transactions.filter(t =>
+        !t.isIgnored && (t.groupId === g.id || t.splits.some(s => memberNames.includes(s.name.toLowerCase())))
+      );
+
+      const memberMap: Record<string, { total: number; settled: boolean }> = {};
+      const memberExpenses: Record<string, number> = {};
+      let myExpenses = 0;
+
+      g.members.forEach(m => {
+        memberMap[m.name] = { total: 0, settled: true };
+        memberExpenses[m.name] = 0;
+      });
+
+      groupTxns.forEach(t => {
+        // My share
+        myExpenses += t.userShare;
+        // Each member's share
+        t.splits.forEach(s => {
+          const key = g.members.find(m => m.name.toLowerCase() === s.name.toLowerCase())?.name;
+          if (key && memberMap[key] !== undefined) {
+            memberMap[key].total += s.share;
+            memberExpenses[key] = (memberExpenses[key] || 0) + s.share;
+            if (!s.settled) memberMap[key].settled = false;
+          }
+        });
+      });
+
+      data[g.id] = {
+        balances: g.members.map(m => ({
+          id: m.id,
+          name: m.name,
+          amount: memberMap[m.name]?.total || 0,
+          settled: memberMap[m.name]?.settled ?? true,
+        })),
+        memberExpenses,
+        myExpenses,
+      };
     });
+
+    return data;
+  }, [groups, transactions]);
+
+  const summary = useMemo(() => {
+    let owedToYou = 0;
+    let settledCount = 0;
+    Object.values(groupData).forEach(({ balances }) => {
+      balances.forEach(m => {
+        if (m.settled && m.amount > 0) settledCount++;
+        else if (m.amount > 0) owedToYou += m.amount;
+      });
+    });
+    return { owedToYou, youOwe: 0, settledCount };
+  }, [groupData]);
+
+  const getGroupNetBalance = (groupId: string) => {
+    const members = groupData[groupId]?.balances || [];
+    return members.reduce((sum, m) => sum + (m.settled ? 0 : m.amount), 0);
   };
 
   const formatAmount = (n: number) => `₹${Math.abs(n).toLocaleString('en-IN')}`;
 
   return (
-    <div className="sheet-overlay" onClick={onClose}>
-      <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} className="sheet-panel" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-6 pt-6 pb-4 flex-shrink-0">
-          <div>
-            <h3 className="text-lg font-bold text-foreground">{group.name}</h3>
-            <p className="text-[11px] text-muted-foreground">You, {members.map(m => m.name).join(', ')}</p>
-          </div>
-          <div className="flex items-center gap-3">
-            {totalOwed > 0 && <span className="text-sm font-bold text-accent">{formatAmount(totalOwed)}</span>}
-            <button onClick={onClose} className="text-muted-foreground"><X className="w-5 h-5" /></button>
-          </div>
-        </div>
-
-        <div className="sheet-body px-6 space-y-4">
-          {/* Member balances */}
-          <div>
-            <p className="text-xs text-muted-foreground mb-2 font-semibold">Balances</p>
-            <div className="space-y-1.5">
-              {memberBalances.map(m => (
-                <div key={m.name} className="flex items-center justify-between py-2 px-3 rounded-lg bg-secondary/50">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center text-sm font-bold text-accent">
-                      {m.name.charAt(0).toUpperCase()}
-                    </div>
-                    <span className="text-sm font-medium text-foreground">{m.name}</span>
-                  </div>
-                  <span className={`text-sm font-semibold ${m.owes > 0 ? 'text-accent' : 'text-primary'}`}>
-                    {m.owes > 0 ? `owes ${formatAmount(m.owes)}` : '₹0'}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Individual expenses (all-time) */}
-          <div>
-            <p className="text-xs text-muted-foreground mb-2 font-semibold uppercase tracking-wider">Individual Expenses (Till Date)</p>
-            <div className="space-y-1.5">
-              {individualTotals.map(m => (
-                <div key={m.name} className="flex items-center justify-between py-2 px-3 rounded-lg bg-secondary/50">
-                  <span className="text-sm text-foreground">{m.name}</span>
-                  <span className="text-sm font-medium text-foreground">{formatAmount(m.total)}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Add expense button */}
-          <button onClick={() => setShowAddExpense(!showAddExpense)}
-            className="w-full py-2 rounded-xl border border-primary/30 bg-primary/5 text-primary text-sm font-semibold">
-            + Add Group Expense
-          </button>
-
-          {showAddExpense && (
-            <div className="space-y-2 p-3 bg-secondary/30 rounded-xl">
-              <input value={expForm.description} onChange={e => setExpForm({ ...expForm, description: e.target.value })}
-                placeholder="Description" className="w-full bg-secondary rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none border border-border focus:border-primary" />
-              <input type="number" value={expForm.amount} onChange={e => setExpForm({ ...expForm, amount: e.target.value })}
-                placeholder="Amount" className="w-full bg-secondary rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none border border-border focus:border-primary" />
-              <select value={expForm.paid_by} onChange={e => setExpForm({ ...expForm, paid_by: e.target.value })}
-                className="w-full bg-secondary rounded-lg px-3 py-2 text-sm text-foreground outline-none border border-border focus:border-primary">
-                <option value="You">You</option>
-                {members.map(m => <option key={m.name} value={m.name}>{m.name}</option>)}
-              </select>
-              <button onClick={handleAddExpense} disabled={addExpenseMutation.isPending}
-                className="w-full gradient-primary text-primary-foreground font-semibold py-2.5 rounded-xl text-sm disabled:opacity-50">
-                {addExpenseMutation.isPending ? 'Adding...' : 'Add'}
-              </button>
-            </div>
-          )}
-        </div>
-
-        <div className="sheet-footer">
-          <div className="flex items-center gap-2">
-            <button onClick={() => deleteGroupMutation.mutate(group.id)}
-              className="p-3 rounded-xl bg-secondary text-muted-foreground hover:text-destructive transition-colors">
-              <Trash2 className="w-5 h-5" />
-            </button>
-            {totalOwed > 0 && (
-              <button onClick={handleSettle} disabled={addSettlementMutation.isPending}
-                className="flex-1 min-h-12 gradient-primary text-primary-foreground font-semibold py-3 rounded-xl disabled:opacity-50">
-                {addSettlementMutation.isPending ? 'Settling...' : `Settle Up — ${formatAmount(totalOwed)}`}
-              </button>
-            )}
-          </div>
-        </div>
-      </motion.div>
-    </div>
-  );
-};
-
-const Groups = () => {
-  const { data: groups = [], isLoading } = useGroups();
-  const addGroupMutation = useAddGroup();
-
-  const [showCreate, setShowCreate] = useState(false);
-  const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
-  const [newName, setNewName] = useState('');
-  const [newMembers, setNewMembers] = useState(['']);
-
-  const handleCreate = () => {
-    if (!newName.trim() || newMembers.every(m => !m.trim())) return;
-    addGroupMutation.mutate({
-      name: newName,
-      members: newMembers.filter(m => m.trim()).map(name => ({ name })),
-    }, {
-      onSuccess: () => {
-        setNewName('');
-        setNewMembers(['']);
-        setShowCreate(false);
-        toast.success('Group created!');
-      },
-    });
-  };
-
-  if (isLoading) return (
-    <div className="min-h-dvh flex items-center justify-center">
-      <div className="w-8 h-8 border-3 border-primary/30 border-t-primary rounded-full animate-spin" />
-    </div>
-  );
-
-  return (
     <div className="px-4 pt-14 pb-24 safe-bottom">
+      {/* Header */}
       <div className="flex items-center justify-between mb-2">
         <h1 className="text-2xl font-bold text-foreground">Groups & Splits</h1>
         <button onClick={() => setShowCreate(true)} className="gradient-primary text-primary-foreground px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-1.5">
           <Plus className="w-4 h-4" /> Create Group
         </button>
       </div>
+      <p className="text-sm text-muted-foreground mb-5">
+        Net owed: <span className="text-primary font-semibold">{formatAmount(summary.owedToYou)}</span> to you
+      </p>
 
-      <div className="space-y-4 mt-5">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-3 gap-3 mb-6">
+        <div className="bg-card border border-border rounded-xl p-3 text-center">
+          <p className="text-lg font-bold text-primary">{formatAmount(summary.owedToYou)}</p>
+          <p className="text-[11px] text-muted-foreground">Owed to you</p>
+        </div>
+        <div className="bg-card border border-border rounded-xl p-3 text-center">
+          <p className="text-lg font-bold text-destructive">{formatAmount(summary.youOwe)}</p>
+          <p className="text-[11px] text-muted-foreground">You owe</p>
+        </div>
+        <div className="bg-card border border-border rounded-xl p-3 text-center">
+          <p className="text-lg font-bold text-foreground">{summary.settledCount}</p>
+          <p className="text-[11px] text-muted-foreground">Settled</p>
+        </div>
+      </div>
+
+      {/* Group List */}
+      <div className="space-y-4">
         {groups.map(g => {
-          const members = (g.members as { name: string }[]) || [];
-          const memberNames = members.map(m => m.name).join(', ');
+          const netBalance = getGroupNetBalance(g.id);
+          const gd = groupData[g.id];
+          const members = gd?.balances || [];
+          const isExpanded = expandedGroup === g.id;
+          const memberNames = g.members.map(m => m.name).join(', ');
+
           return (
-            <motion.div key={g.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-              onClick={() => setSelectedGroup(g)}
-              className="bg-card border border-border rounded-xl p-4 cursor-pointer hover:border-primary/30 transition-colors">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  <Users className="w-5 h-5 text-primary" />
+            <motion.div key={g.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-card border border-border rounded-xl overflow-hidden">
+              <button
+                onClick={() => setExpandedGroup(isExpanded ? null : g.id)}
+                className="w-full flex items-center justify-between p-4 text-left"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <Users className="w-5 h-5 text-primary" />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="font-semibold text-foreground truncate">{g.name}</h3>
+                    <p className="text-[11px] text-muted-foreground truncate">You, {memberNames}</p>
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <h3 className="font-semibold text-foreground truncate">{g.name}</h3>
-                  <p className="text-[11px] text-muted-foreground truncate">You, {memberNames}</p>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {netBalance > 0 ? (
+                    <span className="text-sm font-bold text-primary">+{formatAmount(netBalance)}</span>
+                  ) : netBalance < 0 ? (
+                    <span className="text-sm font-bold text-destructive">-{formatAmount(netBalance)}</span>
+                  ) : (
+                    <span className="text-sm font-medium text-muted-foreground">settled</span>
+                  )}
+                  {isExpanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
                 </div>
-              </div>
+              </button>
+
+              <AnimatePresence>
+                {isExpanded && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="px-4 pb-4 space-y-2">
+                      {/* Members with balances */}
+                      {members.map(m => (
+                        <div key={m.id} className="flex items-center justify-between py-2 px-3 rounded-lg bg-secondary/50">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center text-sm font-bold text-accent">
+                              {m.name.charAt(0).toUpperCase()}
+                            </div>
+                            <span className="text-sm font-medium text-foreground">{m.name}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {m.settled ? (
+                              <span className="text-xs text-muted-foreground italic flex items-center gap-1">
+                                <Check className="w-3 h-3" /> settled
+                              </span>
+                            ) : m.amount > 0 ? (
+                              <span className="text-sm font-semibold text-primary">owes {formatAmount(m.amount)}</span>
+                            ) : (
+                              <span className="text-sm font-semibold text-destructive">you owe {formatAmount(m.amount)}</span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* Individual Expenses Section */}
+                      <div className="mt-3 pt-3 border-t border-border">
+                        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Individual Expenses (Till Date)</p>
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between py-1.5 px-3 rounded-lg bg-primary/5">
+                            <div className="flex items-center gap-2">
+                              <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-bold text-primary">Y</div>
+                              <span className="text-xs font-medium text-foreground">You</span>
+                            </div>
+                            <span className="text-xs font-bold text-primary">{formatAmount(gd?.myExpenses || 0)}</span>
+                          </div>
+                          {members.map(m => (
+                            <div key={m.id + '-exp'} className="flex items-center justify-between py-1.5 px-3 rounded-lg bg-secondary/30">
+                              <div className="flex items-center gap-2">
+                                <div className="w-6 h-6 rounded-full bg-accent/20 flex items-center justify-center text-[10px] font-bold text-accent">
+                                  {m.name.charAt(0).toUpperCase()}
+                                </div>
+                                <span className="text-xs font-medium text-foreground">{m.name}</span>
+                              </div>
+                              <span className="text-xs font-bold text-foreground">{formatAmount(gd?.memberExpenses[m.name] || 0)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="flex items-center gap-2 pt-2">
+                        {netBalance > 0 ? (
+                          <button
+                            onClick={() => {
+                              members.filter(m => !m.settled && m.amount > 0).forEach(m => settleUp(g.id, m.id));
+                              toast.success('✅ Settled up successfully');
+                            }}
+                            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-primary/10 border border-primary/30 text-primary text-sm font-semibold transition-colors hover:bg-primary/20"
+                          >
+                            💸 Settle Up — {formatAmount(netBalance)}
+                          </button>
+                        ) : netBalance < 0 ? (
+                          <button
+                            onClick={() => {
+                              members.filter(m => !m.settled && m.amount < 0).forEach(m => settleUp(g.id, m.id));
+                              toast.success('✅ Settled up successfully');
+                            }}
+                            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive text-sm font-semibold transition-colors hover:bg-destructive/20"
+                          >
+                            💸 Pay {formatAmount(netBalance)}
+                          </button>
+                        ) : null}
+                        <button
+                          onClick={() => deleteGroup(g.id)}
+                          className="p-2.5 rounded-xl bg-secondary text-muted-foreground hover:text-destructive transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.div>
           );
         })}
@@ -257,45 +261,52 @@ const Groups = () => {
         )}
       </div>
 
-      {/* Create Group Sheet */}
+      {/* Create Group Modal */}
       <AnimatePresence>
         {showCreate && (
           <div className="sheet-overlay" onClick={() => setShowCreate(false)}>
-            <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} className="sheet-panel" onClick={(e) => e.stopPropagation()}>
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              className="sheet-panel"
+              onClick={(e) => e.stopPropagation()}
+            >
               <div className="flex items-center justify-between px-6 pt-6 pb-4 flex-shrink-0">
                 <h3 className="text-lg font-bold text-foreground">Create Group</h3>
                 <button onClick={() => setShowCreate(false)} className="text-muted-foreground"><X className="w-5 h-5" /></button>
               </div>
+
               <div className="sheet-body px-6">
                 <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Group name" className="w-full bg-secondary rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground outline-none border border-border focus:border-primary mb-4" />
+
                 <p className="text-xs text-muted-foreground mb-2">Members</p>
                 <div className="space-y-2 mb-4">
                   {newMembers.map((m, i) => (
                     <div key={i} className="flex gap-2">
-                      <input value={m} onChange={(e) => { const n = [...newMembers]; n[i] = e.target.value; setNewMembers(n); }} placeholder="Member name"
-                        className="flex-1 bg-secondary rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none border border-border focus:border-primary" />
+                      <input
+                        value={m}
+                        onChange={(e) => { const n = [...newMembers]; n[i] = e.target.value; setNewMembers(n); }}
+                        placeholder="Member name"
+                        className="flex-1 bg-secondary rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none border border-border focus:border-primary"
+                      />
                       {newMembers.length > 1 && (
                         <button onClick={() => setNewMembers(newMembers.filter((_, j) => j !== i))} className="text-muted-foreground hover:text-destructive"><X className="w-4 h-4" /></button>
                       )}
                     </div>
                   ))}
                 </div>
+
                 <button onClick={() => setNewMembers([...newMembers, ''])} className="text-sm text-primary flex items-center gap-1 mb-4"><Plus className="w-4 h-4" /> Add member</button>
               </div>
+
               <div className="sheet-footer">
-                <button onClick={handleCreate} disabled={addGroupMutation.isPending} className="w-full min-h-12 gradient-primary text-primary-foreground font-semibold py-3 rounded-xl disabled:opacity-50">
-                  {addGroupMutation.isPending ? 'Creating...' : 'Create Group'}
-                </button>
+                <button onClick={handleCreate} className="w-full min-h-12 gradient-primary text-primary-foreground font-semibold py-3 rounded-xl">Create Group</button>
               </div>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
-
-      {/* Group Detail Sheet */}
-      {selectedGroup && (
-        <GroupDetail group={selectedGroup} onClose={() => setSelectedGroup(null)} />
-      )}
     </div>
   );
 };

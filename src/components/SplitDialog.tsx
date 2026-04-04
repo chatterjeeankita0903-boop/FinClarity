@@ -1,135 +1,149 @@
-import { useState, useMemo } from 'react';
-import { X, Trash2, Plus } from 'lucide-react';
+import { useState } from 'react';
+import { X, Plus, Trash2, Users } from 'lucide-react';
+import { Transaction, useStore } from '@/store/useStore';
 import { motion } from 'framer-motion';
-import { useGroups } from '@/hooks/useGroups';
 
-interface SplitPerson {
-  name: string;
-  amount: number;
-}
-
-interface SplitDialogProps {
-  amount: number;
+interface Props {
+  transaction: Transaction;
   onClose: () => void;
-  onConfirm: (splits: SplitPerson[], groupId?: string) => void;
 }
 
-export const SplitDialog = ({ amount, onClose, onConfirm }: SplitDialogProps) => {
-  const { data: groups = [] } = useGroups();
-  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
-  const [splitType, setSplitType] = useState<'equal' | 'custom'>('equal');
-  const [people, setPeople] = useState<SplitPerson[]>([{ name: '', amount: 0 }]);
+export const SplitDialog = ({ transaction, onClose }: Props) => {
+  const { splitTransaction, groups } = useStore();
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(transaction.groupId);
+  const [members, setMembers] = useState(
+    transaction.splits.length > 0
+      ? transaction.splits.map(s => ({ name: s.name, share: s.share }))
+      : [{ name: '', share: 0 }]
+  );
+  const [mode, setMode] = useState<'equal' | 'custom'>('equal');
 
-  const selectedGroup = groups.find(g => g.id === selectedGroupId);
+  const totalPeople = members.filter(m => m.name).length + 1;
+  const equalShare = Math.round(transaction.amount / totalPeople);
 
-  // When a group is selected, populate people from group members
-  const handleSelectGroup = (groupId: string | null) => {
+  const handleGroupSelect = (groupId: string) => {
+    if (groupId === '') {
+      setSelectedGroupId(null);
+      return;
+    }
     setSelectedGroupId(groupId);
-    if (groupId) {
-      const group = groups.find(g => g.id === groupId);
-      if (group) {
-        const members = (group.members as { name: string }[]) || [];
-        const perPerson = Math.floor(amount / (members.length + 1));
-        setPeople(members.map(m => ({ name: m.name, amount: perPerson })));
-      }
-    } else {
-      setPeople([{ name: '', amount: 0 }]);
+    const group = groups.find(g => g.id === groupId);
+    if (group) {
+      setMembers(group.members.map(m => ({ name: m.name, share: 0 })));
     }
   };
 
-  // Recalculate equal splits
-  const totalPeople = people.length + 1; // +1 for "You"
-  const equalShare = Math.floor(amount / totalPeople);
+  const handleSplit = () => {
+    const validMembers = members.filter(m => m.name.trim());
+    if (validMembers.length === 0) return;
 
-  const effectivePeople = useMemo(() => {
-    if (splitType === 'equal') {
-      return people.map(p => ({ ...p, amount: equalShare }));
-    }
-    return people;
-  }, [people, splitType, equalShare]);
+    const splits = validMembers.map((m, i) => ({
+      id: `s-${Date.now()}-${i}`,
+      name: m.name,
+      share: mode === 'equal' ? equalShare : m.share,
+      settled: false,
+    }));
 
-  const othersTotal = effectivePeople.reduce((s, p) => s + p.amount, 0);
-  const yourShare = amount - othersTotal;
-
-  const addPerson = () => setPeople([...people, { name: '', amount: splitType === 'equal' ? equalShare : 0 }]);
-  const removePerson = (i: number) => setPeople(people.filter((_, j) => j !== i));
-  const updatePerson = (i: number, field: keyof SplitPerson, value: string | number) => {
-    const updated = [...people];
-    updated[i] = { ...updated[i], [field]: value };
-    setPeople(updated);
+    splitTransaction(transaction.id, splits, selectedGroupId);
+    onClose();
   };
+
+  const otherTotal = mode === 'equal'
+    ? equalShare * members.filter(m => m.name).length
+    : members.reduce((s, m) => s + (m.share || 0), 0);
+  const yourShare = transaction.amount - otherTotal;
 
   return (
     <div className="sheet-overlay" onClick={onClose}>
-      <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} className="sheet-panel" onClick={e => e.stopPropagation()}>
+      <motion.div
+        initial={{ y: '100%' }}
+        animate={{ y: 0 }}
+        exit={{ y: '100%' }}
+        className="sheet-panel"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between px-6 pt-6 pb-4 flex-shrink-0">
-          <h3 className="text-lg font-bold text-foreground">Split ₹{amount.toLocaleString('en-IN')}</h3>
+          <h3 className="text-lg font-bold text-foreground">Split ₹{transaction.amount.toLocaleString('en-IN')}</h3>
           <button onClick={onClose} className="text-muted-foreground"><X className="w-5 h-5" /></button>
         </div>
 
-        <div className="sheet-body px-6 space-y-4">
-          {/* Group selection */}
-          <div>
-            <p className="text-xs text-muted-foreground mb-2">Split with a group</p>
-            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-              <button onClick={() => handleSelectGroup(null)}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border transition-colors ${!selectedGroupId ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-secondary text-muted-foreground'}`}>
-                Custom
-              </button>
-              {groups.map(g => (
-                <button key={g.id} onClick={() => handleSelectGroup(g.id)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border transition-colors ${selectedGroupId === g.id ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-secondary text-muted-foreground'}`}>
-                  {g.name}
+        <div className="sheet-body px-6">
+          {/* Group Selector */}
+          {groups.length > 0 && (
+            <div className="mb-4">
+              <p className="text-xs text-muted-foreground mb-2">Split with a group</p>
+              <div className="flex gap-2 flex-wrap">
+                <button
+                  onClick={() => handleGroupSelect('')}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors border ${
+                    !selectedGroupId
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border bg-secondary text-secondary-foreground'
+                  }`}
+                >
+                  Custom
                 </button>
-              ))}
+                {groups.map(g => (
+                  <button
+                    key={g.id}
+                    onClick={() => handleGroupSelect(g.id)}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors border ${
+                      selectedGroupId === g.id
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-border bg-secondary text-secondary-foreground'
+                    }`}
+                  >
+                    <Users className="w-3.5 h-3.5" />
+                    {g.name}
+                  </button>
+                ))}
+              </div>
             </div>
+          )}
+
+          <div className="flex gap-2 mb-4">
+            <button onClick={() => setMode('equal')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${mode === 'equal' ? 'gradient-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground'}`}>Equal</button>
+            <button onClick={() => setMode('custom')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${mode === 'custom' ? 'gradient-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground'}`}>Custom</button>
           </div>
 
-          {/* Split type */}
-          <div className="flex gap-2">
-            <button onClick={() => setSplitType('equal')}
-              className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${splitType === 'equal' ? 'gradient-primary text-primary-foreground' : 'bg-secondary text-muted-foreground'}`}>
-              Equal
-            </button>
-            <button onClick={() => setSplitType('custom')}
-              className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${splitType === 'custom' ? 'gradient-primary text-primary-foreground' : 'bg-secondary text-muted-foreground'}`}>
-              Custom
-            </button>
-          </div>
-
-          {/* People rows */}
-          <div className="space-y-2">
-            {effectivePeople.map((p, i) => (
+          <div className="space-y-3 mb-4">
+            {members.map((m, i) => (
               <div key={i} className="flex items-center gap-2">
-                <input value={p.name} onChange={e => updatePerson(i, 'name', e.target.value)}
-                  placeholder="Name" className="flex-1 bg-secondary rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none border border-border focus:border-primary" />
-                {splitType === 'custom' ? (
-                  <input type="number" value={p.amount || ''} onChange={e => updatePerson(i, 'amount', Number(e.target.value))}
-                    placeholder="₹0" className="w-24 bg-secondary rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none border border-border focus:border-primary" />
-                ) : (
-                  <span className="w-24 text-right text-sm font-medium text-foreground">₹{equalShare.toLocaleString('en-IN')}</span>
+                <input
+                  value={m.name}
+                  onChange={(e) => { const n = [...members]; n[i].name = e.target.value; setMembers(n); }}
+                  placeholder="Name"
+                  className="flex-1 bg-secondary rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none border border-border focus:border-primary"
+                />
+                {mode === 'custom' && (
+                  <input
+                    type="number"
+                    value={m.share || ''}
+                    onChange={(e) => { const n = [...members]; n[i].share = Number(e.target.value); setMembers(n); }}
+                    placeholder="₹"
+                    className="w-24 bg-secondary rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none border border-border focus:border-primary"
+                  />
                 )}
-                <button onClick={() => removePerson(i)} className="text-muted-foreground hover:text-destructive"><Trash2 className="w-4 h-4" /></button>
+                {mode === 'equal' && <span className="text-sm font-medium text-primary w-24 text-right">₹{equalShare.toLocaleString('en-IN')}</span>}
+                <button onClick={() => setMembers(members.filter((_, j) => j !== i))} className="text-muted-foreground hover:text-destructive"><Trash2 className="w-4 h-4" /></button>
               </div>
             ))}
           </div>
 
-          <button onClick={addPerson} className="text-sm text-primary flex items-center gap-1">
+          <button onClick={() => setMembers([...members, { name: '', share: 0 }])} className="flex items-center gap-1 text-sm text-primary mb-4">
             <Plus className="w-4 h-4" /> Add person
           </button>
-
-          {/* Your share */}
-          <div className="flex items-center justify-between py-3 px-4 bg-secondary/50 rounded-xl">
-            <span className="text-sm font-medium text-foreground">Your share</span>
-            <span className={`text-sm font-bold ${yourShare < 0 ? 'text-destructive' : 'text-primary'}`}>
-              ₹{yourShare.toLocaleString('en-IN')}
-            </span>
-          </div>
         </div>
 
         <div className="sheet-footer">
-          <button onClick={() => onConfirm(effectivePeople, selectedGroupId || undefined)}
-            className="w-full min-h-12 gradient-primary text-primary-foreground font-semibold py-3 rounded-xl">
+          <div className="glass-elevated p-3 rounded-lg mb-3">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Your share</span>
+              <span className={`font-bold ${yourShare < 0 ? 'text-destructive' : 'text-primary'}`}>₹{yourShare.toLocaleString('en-IN')}</span>
+            </div>
+          </div>
+
+          <button onClick={handleSplit} disabled={yourShare < 0} className="w-full min-h-12 gradient-primary text-primary-foreground font-semibold py-3 rounded-xl disabled:opacity-50">
             Confirm Split
           </button>
         </div>
