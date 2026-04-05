@@ -1,198 +1,148 @@
-import { useState, useEffect, useMemo } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import { getTransactions, addTransaction, deleteTransaction, updateTransaction, Transaction, EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '@/services/transactions';
-import { format } from 'date-fns';
-import { Plus, Trash2, Edit2, X, Search, ArrowUpDown } from 'lucide-react';
-import { toast } from 'sonner';
+import { useState, useMemo } from 'react';
+import { Search, X, ArrowUpDown } from 'lucide-react';
+import { useStore, Category, PaymentMode } from '@/store/useStore';
+import { TransactionCard } from '@/components/TransactionCard';
+import { getRecentMonths, getShortMonthLabel, getCurrentMonth } from '@/lib/dateUtils';
+
+const CATEGORIES: Category[] = ['Food', 'Transport', 'Shopping', 'Bills', 'Rent', 'Entertainment', 'Health', 'SIP', 'Travel', 'Education', 'Other'];
+const PAYMENT_MODES: PaymentMode[] = ['UPI', 'Credit Card', 'Debit Card', 'Cash', 'Net Banking'];
+const PAYMENT_ICONS: Record<string, string> = { 'UPI': '📱', 'Credit Card': '💳', 'Debit Card': '💳', 'Cash': '💵', 'Net Banking': '🏦' };
 
 const Transactions = () => {
-  const { user } = useAuth();
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const transactions = useStore(s => s.transactions);
+  const recentMonths = useMemo(() => getRecentMonths(6), []);
+  const monthOptions = [{ key: '', label: 'All' }, ...recentMonths.map(m => ({ key: m, label: getShortMonthLabel(m) }))];
+
   const [search, setSearch] = useState('');
-  const [filterType, setFilterType] = useState<'' | 'income' | 'expense'>('');
-  const [filterCategory, setFilterCategory] = useState('');
+  const [selectedMode, setSelectedMode] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth());
+  const [showIgnored, setShowIgnored] = useState(false);
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
-
-  // Form state
-  const [title, setTitle] = useState('');
-  const [amount, setAmount] = useState('');
-  const [type, setType] = useState<'income' | 'expense'>('expense');
-  const [category, setCategory] = useState('');
-  const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
-  const [note, setNote] = useState('');
-
-  const reload = () => { if (user) getTransactions(user.id).then(setTransactions); };
-  useEffect(() => { reload(); }, [user]);
-
-  const categories = type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
-
-  const resetForm = () => {
-    setTitle(''); setAmount(''); setType('expense'); setCategory(''); setDate(format(new Date(), 'yyyy-MM-dd')); setNote('');
-    setEditingId(null); setShowForm(false);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user || !title || !amount || !category) return;
-    if (editingId) {
-      await updateTransaction(user.id, editingId, { title, amount: parseFloat(amount), type, category, date, note });
-      toast.success('Transaction updated');
-    } else {
-      await addTransaction(user.id, { title, amount: parseFloat(amount), type, category, date, note });
-      toast.success('Transaction added');
-    }
-    resetForm();
-    reload();
-  };
-
-  const handleEdit = (t: Transaction) => {
-    setTitle(t.title); setAmount(String(t.amount)); setType(t.type); setCategory(t.category); setDate(t.date); setNote(t.note);
-    setEditingId(t.id); setShowForm(true);
-  };
-
-  const handleDelete = async (id: string) => {
-    if (!user) return;
-    await deleteTransaction(user.id, id);
-    toast.success('Transaction deleted');
-    reload();
-  };
 
   const filtered = useMemo(() => {
     let result = transactions.filter(t => {
-      if (filterType && t.type !== filterType) return false;
-      if (filterCategory && t.category !== filterCategory) return false;
-      if (search && !t.title.toLowerCase().includes(search.toLowerCase())) return false;
+      if (!showIgnored && t.isIgnored) return false;
+      if (selectedCategory && t.category !== selectedCategory) return false;
+      if (selectedMode && t.paymentMode !== selectedMode) return false;
+      if (selectedMonth && !t.date.startsWith(selectedMonth)) return false;
+      if (search && !t.merchant.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
     });
-    result.sort((a, b) => sortOrder === 'newest' ? b.date.localeCompare(a.date) : a.date.localeCompare(b.date));
+    // Sort by date
+    result = [...result].sort((a, b) => {
+      const cmp = a.date.localeCompare(b.date);
+      return sortOrder === 'newest' ? -cmp : cmp;
+    });
     return result;
-  }, [transactions, search, filterType, filterCategory, sortOrder]);
+  }, [transactions, search, selectedMode, selectedCategory, selectedMonth, showIgnored, sortOrder]);
 
-  const fmt = (n: number) => '₹' + n.toLocaleString('en-IN');
+  const totalFiltered = useMemo(() => filtered.reduce((s, t) => s + t.userShare, 0), [filtered]);
+
+  const hasActiveFilters = !!(selectedMode || selectedCategory || showIgnored);
 
   return (
-    <div className="px-4 pt-6 safe-bottom">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-bold text-foreground">Transactions</h1>
-        <div className="flex items-center gap-2">
-          <button onClick={() => setSortOrder(s => s === 'newest' ? 'oldest' : 'newest')} className="p-2 rounded-lg bg-secondary text-muted-foreground">
-            <ArrowUpDown className="w-4 h-4" />
-          </button>
-          <button onClick={() => setShowForm(true)} className="gradient-primary text-primary-foreground p-2 rounded-lg">
-            <Plus className="w-4 h-4" />
-          </button>
-        </div>
+    <div className="px-4 pt-14 safe-bottom">
+      <div className="flex items-center justify-between mb-1">
+        <h1 className="text-2xl font-bold text-foreground">Transactions</h1>
+        <button
+          onClick={() => setSortOrder(sortOrder === 'newest' ? 'oldest' : 'newest')}
+          className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium border border-border bg-secondary text-muted-foreground"
+        >
+          <ArrowUpDown className="w-3 h-3" />
+          {sortOrder === 'newest' ? 'Newest' : 'Oldest'}
+        </button>
       </div>
+      <p className="text-sm text-muted-foreground mb-4">
+        {filtered.length} transactions · ₹{totalFiltered.toLocaleString('en-IN')}
+      </p>
 
       {/* Search */}
       <div className="relative mb-3">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search transactions..."
-          className="w-full bg-secondary rounded-xl pl-9 pr-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none border border-border focus:border-primary" />
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search merchants..."
+          className="w-full bg-secondary rounded-xl pl-9 pr-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none border border-border focus:border-primary"
+        />
       </div>
 
-      {/* Type filter */}
-      <div className="flex gap-2 mb-4">
-        {(['', 'income', 'expense'] as const).map(t => (
-          <button key={t} onClick={() => setFilterType(t)}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${filterType === t ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-secondary text-muted-foreground'}`}>
-            {t === '' ? 'All' : t === 'income' ? '↑ Income' : '↓ Expense'}
+      {/* Payment Mode Tabs */}
+      <div className="flex gap-2 overflow-x-auto pb-2 mb-2 scrollbar-hide">
+        <button
+          onClick={() => setSelectedMode('')}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border transition-colors ${
+            !selectedMode ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-secondary text-muted-foreground'
+          }`}
+        >All</button>
+        {PAYMENT_MODES.map(mode => (
+          <button
+            key={mode}
+            onClick={() => setSelectedMode(selectedMode === mode ? '' : mode)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border transition-colors ${
+              selectedMode === mode ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-secondary text-muted-foreground'
+            }`}
+          >
+            <span>{PAYMENT_ICONS[mode] || '💰'}</span>
+            {mode === 'Credit Card' ? 'Card' : mode === 'Debit Card' ? 'Debit' : mode === 'Net Banking' ? 'NEFT' : mode}
           </button>
         ))}
       </div>
 
-      {/* List */}
-      {filtered.length === 0 ? (
-        <div className="text-center py-16">
-          <p className="text-muted-foreground text-sm">No transactions yet — add your first one!</p>
-          <button onClick={() => setShowForm(true)} className="mt-3 gradient-primary text-primary-foreground text-sm font-medium px-4 py-2 rounded-xl">
-            Add Transaction
-          </button>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {filtered.map(t => (
-            <div key={t.id} className="glass-card p-3 flex items-center justify-between">
-              <div className="flex-1 min-w-0 mr-3">
-                <p className="text-sm font-medium text-foreground truncate">{t.title}</p>
-                <p className="text-xs text-muted-foreground">{t.category} · {format(new Date(t.date), 'dd MMM yyyy')}</p>
-                {t.note && <p className="text-xs text-muted-foreground/70 truncate mt-0.5">{t.note}</p>}
-              </div>
-              <div className="flex items-center gap-2">
-                <span className={`text-sm font-semibold whitespace-nowrap ${t.type === 'income' ? 'text-primary' : 'text-destructive'}`}>
-                  {t.type === 'income' ? '+' : '-'}{fmt(t.amount)}
-                </span>
-                <button onClick={() => handleEdit(t)} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground"><Edit2 className="w-3.5 h-3.5" /></button>
-                <button onClick={() => handleDelete(t.id)} className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      {/* Category Tabs */}
+      <div className="flex gap-2 overflow-x-auto pb-2 mb-2 scrollbar-hide">
+        <button
+          onClick={() => setSelectedCategory('')}
+          className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border transition-colors ${
+            !selectedCategory ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-secondary text-muted-foreground'
+          }`}
+        >All Categories</button>
+        {CATEGORIES.map(cat => (
+          <button
+            key={cat}
+            onClick={() => setSelectedCategory(selectedCategory === cat ? '' : cat)}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border transition-colors ${
+              selectedCategory === cat ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-secondary text-muted-foreground'
+            }`}
+          >{cat}</button>
+        ))}
+      </div>
 
-      {/* Add/Edit Modal */}
-      {showForm && (
-        <div className="sheet-overlay" onClick={(e) => { if (e.target === e.currentTarget) resetForm(); }}>
-          <div className="sheet-panel">
-            <div className="flex items-center justify-between p-4 border-b border-border">
-              <h2 className="text-base font-semibold text-foreground">{editingId ? 'Edit Transaction' : 'Add Transaction'}</h2>
-              <button onClick={resetForm} className="text-muted-foreground"><X className="w-5 h-5" /></button>
-            </div>
-            <form onSubmit={handleSubmit} className="sheet-body p-4 space-y-4">
-              {/* Type toggle */}
-              <div className="flex gap-2">
-                <button type="button" onClick={() => { setType('expense'); setCategory(''); }}
-                  className={`flex-1 py-2 rounded-xl text-sm font-medium border transition-colors ${type === 'expense' ? 'border-destructive bg-destructive/10 text-destructive' : 'border-border text-muted-foreground'}`}>
-                  Expense
-                </button>
-                <button type="button" onClick={() => { setType('income'); setCategory(''); }}
-                  className={`flex-1 py-2 rounded-xl text-sm font-medium border transition-colors ${type === 'income' ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground'}`}>
-                  Income
-                </button>
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground mb-1.5 block">Title</label>
-                <input value={title} onChange={e => setTitle(e.target.value)} required placeholder="e.g. Grocery shopping"
-                  className="w-full bg-secondary rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none border border-border focus:border-primary" />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground mb-1.5 block">Amount (₹)</label>
-                <input type="number" value={amount} onChange={e => setAmount(e.target.value)} required min="0.01" step="0.01" placeholder="0.00"
-                  className="w-full bg-secondary rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none border border-border focus:border-primary" />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground mb-1.5 block">Category</label>
-                <div className="flex flex-wrap gap-2">
-                  {categories.map(c => (
-                    <button key={c} type="button" onClick={() => setCategory(c)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${category === c ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground'}`}>
-                      {c}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground mb-1.5 block">Date</label>
-                <input type="date" value={date} onChange={e => setDate(e.target.value)}
-                  className="w-full bg-secondary rounded-xl px-4 py-2.5 text-sm text-foreground outline-none border border-border focus:border-primary" />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground mb-1.5 block">Note (optional)</label>
-                <input value={note} onChange={e => setNote(e.target.value)} placeholder="Any notes..."
-                  className="w-full bg-secondary rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none border border-border focus:border-primary" />
-              </div>
-            </form>
-            <div className="sheet-footer">
-              <button onClick={handleSubmit} disabled={!title || !amount || !category}
-                className="w-full gradient-primary text-primary-foreground font-semibold py-3 rounded-xl disabled:opacity-50">
-                {editingId ? 'Update Transaction' : 'Add Transaction'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Month Tabs */}
+      <div className="flex gap-2 overflow-x-auto pb-3 mb-3 scrollbar-hide">
+        {monthOptions.map(m => (
+          <button
+            key={m.key}
+            onClick={() => setSelectedMonth(selectedMonth === m.key ? '' : m.key)}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border transition-colors ${
+              selectedMonth === m.key ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-secondary text-muted-foreground'
+            }`}
+          >{m.label}</button>
+        ))}
+      </div>
+
+      {/* Show ignored toggle + clear */}
+      <div className="flex items-center justify-between mb-3">
+        <label className="flex items-center gap-2 text-xs text-muted-foreground">
+          <input type="checkbox" checked={showIgnored} onChange={(e) => setShowIgnored(e.target.checked)} className="rounded accent-primary" />
+          Show ignored
+        </label>
+        {hasActiveFilters && (
+          <button onClick={() => { setSelectedMode(''); setSelectedCategory(''); setShowIgnored(false); }} className="text-xs text-destructive flex items-center gap-1">
+            <X className="w-3 h-3" /> Clear filters
+          </button>
+        )}
+      </div>
+
+      {/* List */}
+      <div className="space-y-3">
+        {filtered.length === 0 ? (
+          <p className="text-center text-muted-foreground py-12 text-sm">No transactions found</p>
+        ) : (
+          filtered.map(t => <TransactionCard key={t.id} transaction={t} />)
+        )}
+      </div>
     </div>
   );
 };

@@ -1,182 +1,197 @@
-import { useState, useEffect, useMemo } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import { getTransactions, Transaction } from '@/services/transactions';
-import { getBudgets, Budget } from '@/services/budgets';
-import { format } from 'date-fns';
-import { TrendingUp, TrendingDown, Wallet, PiggyBank, ChevronRight } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useMemo } from 'react';
+import { motion } from 'framer-motion';
+import { ArrowUpRight, Wallet, Settings as SettingsIcon } from 'lucide-react';
+import { useStore, getTotalSpend, getCategoryBreakdown, getActiveTransactions, Category, ALL_CATEGORIES } from '@/store/useStore';
+import { BudgetBar } from '@/components/BudgetBar';
+import { NotificationBell } from '@/components/NotificationBell';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import { useNavigate } from 'react-router-dom';
+import { getCurrentMonth, getCurrentMonthLabel } from '@/lib/dateUtils';
+import { BudgetEditorSheet } from '@/components/BudgetEditorSheet';
 
-const CHART_COLORS = ['hsl(152,68%,46%)', 'hsl(38,92%,55%)', 'hsl(210,80%,55%)', 'hsl(0,72%,55%)', 'hsl(280,60%,55%)', 'hsl(180,60%,45%)', 'hsl(320,60%,55%)', 'hsl(60,70%,50%)'];
+const COLORS = ['#22c55e', '#f97316', '#3b82f6', '#ec4899', '#a855f7', '#eab308', '#14b8a6', '#f43f5e', '#6366f1', '#06b6d4', '#64748b'];
+
+const CATEGORY_EMOJI: Record<string, string> = {
+  Food: '🍕', Transport: '🚗', Shopping: '🛍️', Bills: '📃', Rent: '🏠',
+  Entertainment: '🎬', Health: '💊', SIP: '📈', Travel: '✈️', Education: '📚', Other: '💰',
+};
+
+const CHART_TOOLTIP_STYLE = {
+  background: 'hsl(var(--chart-tooltip-bg) / 0.96)',
+  border: '1px solid hsl(var(--border))',
+  borderRadius: '12px',
+  boxShadow: 'var(--shadow-card)',
+};
+
+const CustomPieTooltip = ({ active, payload }: any) => {
+  if (active && payload && payload.length) {
+    const data = payload[0];
+    return (
+      <div className="px-3 py-2" style={CHART_TOOLTIP_STYLE}>
+        <p className="text-xs font-semibold" style={{ color: 'hsl(var(--chart-tooltip-foreground))' }}>{data.name}: ₹{data.value >= 1000 ? (data.value / 1000).toFixed(1) + 'K' : data.value}</p>
+      </div>
+    );
+  }
+  return null;
+};
 
 const Dashboard = () => {
-  const { user } = useAuth();
   const navigate = useNavigate();
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [budgets, setBudgets] = useState<Budget[]>([]);
+  const transactions = useStore(s => s.transactions);
+  const budget = useStore(s => s.budget);
+  const settings = useStore(s => s.settings);
+  const currentMonth = getCurrentMonth();
+  const totalSpend = useMemo(() => getTotalSpend(transactions, currentMonth), [transactions, currentMonth]);
+  const totalSpendAllTime = useMemo(() => getTotalSpend(transactions), [transactions]);
+  const categoryData = useMemo(() => getCategoryBreakdown(transactions, currentMonth), [transactions, currentMonth]);
+  const chartData = useMemo(() => categoryData.filter((item) => item.value > 0), [categoryData]);
+  const txns = useMemo(() => getActiveTransactions(transactions), [transactions]);
+  const txnCount = useMemo(() => txns.filter(t => t.date.startsWith(currentMonth)).length, [txns, currentMonth]);
+  const categoryChartKey = useMemo(() => chartData.map(({ name, value }) => `${name}:${value}`).join('|'), [chartData]);
 
-  const currentMonth = format(new Date(), 'yyyy-MM');
+  const [showBudgetEditor, setShowBudgetEditor] = useState(false);
 
-  useEffect(() => {
-    if (!user) return;
-    getTransactions(user.id).then(setTransactions);
-    getBudgets(user.id).then(setBudgets);
-  }, [user]);
+  // All categories with budget info
+  const allCategoryData = useMemo(() => {
+    const spendMap: Record<string, number> = {};
+    categoryData.forEach(c => { spendMap[c.name] = c.value; });
+    return ALL_CATEGORIES.map(cat => ({
+      name: cat,
+      spent: spendMap[cat] || 0,
+      budget: budget.categories[cat] || 0,
+    }));
+  }, [categoryData, budget]);
 
-  const monthTxns = useMemo(() => transactions.filter(t => t.date.startsWith(currentMonth)), [transactions, currentMonth]);
+  const formatAmount = (n: number) => {
+    if (n >= 100000) return `₹${(n / 100000).toFixed(1)}L`;
+    if (n >= 1000) return `₹${(n / 1000).toFixed(1)}K`;
+    return `₹${n.toLocaleString('en-IN')}`;
+  };
 
-  const income = useMemo(() => monthTxns.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0), [monthTxns]);
-  const expenses = useMemo(() => monthTxns.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0), [monthTxns]);
-  const balance = income - expenses;
-  const savingsRate = income > 0 ? Math.round(((income - expenses) / income) * 100) : 0;
-
-  const categoryBreakdown = useMemo(() => {
-    const map: Record<string, number> = {};
-    monthTxns.filter(t => t.type === 'expense').forEach(t => {
-      map[t.category] = (map[t.category] || 0) + t.amount;
-    });
-    return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
-  }, [monthTxns]);
-
-  const totalBudget = useMemo(() => budgets.reduce((s, b) => s + b.amount, 0), [budgets]);
-
-  const fmt = (n: number) => '₹' + Math.abs(n).toLocaleString('en-IN');
+  const budgetEnabled = settings.monthlyBudget && budget.overall > 0;
 
   return (
-    <div className="px-4 pt-6 safe-bottom">
+    <div className="px-4 pt-14 safe-bottom flex flex-col gap-3 overflow-y-auto" style={{ minHeight: '100dvh' }}>
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm text-muted-foreground">Welcome back,</p>
-          <h1 className="text-xl font-bold text-foreground">{user?.fullName || 'User'} 👋</h1>
+          <p className="text-xs text-muted-foreground">{getCurrentMonthLabel()}</p>
+          <h1 className="text-xl font-bold text-foreground">FinClarity</h1>
         </div>
-        <div className="text-xs text-muted-foreground bg-secondary px-3 py-1.5 rounded-full">
-          {format(new Date(), 'MMM yyyy')}
-        </div>
-      </div>
-
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 gap-3 mb-6">
-        <div className="glass-card p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <TrendingUp className="w-4 h-4 text-primary" />
-            <span className="text-xs text-muted-foreground">Income</span>
-          </div>
-          <p className="text-lg font-bold text-primary">{fmt(income)}</p>
-        </div>
-        <div className="glass-card p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <TrendingDown className="w-4 h-4 text-destructive" />
-            <span className="text-xs text-muted-foreground">Expenses</span>
-          </div>
-          <p className="text-lg font-bold text-destructive">{fmt(expenses)}</p>
-        </div>
-        <div className="glass-card p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Wallet className="w-4 h-4 text-accent" />
-            <span className="text-xs text-muted-foreground">Balance</span>
-          </div>
-          <p className={`text-lg font-bold ${balance >= 0 ? 'text-primary' : 'text-destructive'}`}>{balance >= 0 ? '+' : '-'}{fmt(balance)}</p>
-        </div>
-        <div className="glass-card p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <PiggyBank className="w-4 h-4 text-foreground" />
-            <span className="text-xs text-muted-foreground">Savings Rate</span>
-          </div>
-          <p className="text-lg font-bold text-foreground">{savingsRate}%</p>
-        </div>
-      </div>
-
-      {/* Budget Progress */}
-      <div className="glass-card p-4 mb-6">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-foreground">Monthly Budget</h2>
-          <button onClick={() => navigate('/budgets')} className="text-xs text-primary flex items-center gap-0.5">
-            Manage <ChevronRight className="w-3 h-3" />
+        <div className="flex items-center gap-2">
+          {settings.budgetAlerts && <NotificationBell />}
+          <button onClick={() => navigate('/settings')} className="p-2 rounded-xl bg-secondary text-muted-foreground">
+            <SettingsIcon className="w-4 h-4" />
           </button>
         </div>
-        {totalBudget > 0 ? (
-          <>
-            <div className="flex justify-between text-xs text-muted-foreground mb-1.5">
-              <span>Spent {fmt(expenses)}</span>
-              <span>of {fmt(totalBudget)}</span>
-            </div>
-            <div className="w-full h-2 bg-secondary rounded-full overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all ${expenses / totalBudget > 0.9 ? 'bg-destructive' : 'gradient-primary'}`}
-                style={{ width: `${Math.min(100, (expenses / totalBudget) * 100)}%` }}
-              />
-            </div>
-          </>
-        ) : (
-          <p className="text-xs text-muted-foreground">No budgets set — <button onClick={() => navigate('/budgets')} className="text-primary">create your first budget!</button></p>
-        )}
       </div>
 
-      {/* Category Breakdown */}
-      <div className="glass-card p-4 mb-6">
-        <h2 className="text-sm font-semibold text-foreground mb-3">Spending by Category</h2>
-        {categoryBreakdown.length > 0 ? (
-          <div className="flex items-center gap-4">
-            <div className="w-28 h-28 flex-shrink-0">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={categoryBreakdown} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={25} outerRadius={50} paddingAngle={2}>
-                    {categoryBreakdown.map((_, i) => (
-                      <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    formatter={(value: number) => fmt(value)}
-                    contentStyle={{ background: 'hsl(220,18%,10%)', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '12px' }}
-                    itemStyle={{ color: '#fff' }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="flex-1 space-y-2">
-              {categoryBreakdown.slice(0, 5).map((c, i) => (
-                <div key={c.name} className="flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 rounded-full" style={{ background: CHART_COLORS[i % CHART_COLORS.length] }} />
-                    <span className="text-muted-foreground">{c.name}</span>
+      {/* Total Spend Cards */}
+      <div className="grid grid-cols-2 gap-3">
+        <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="glass-card p-3 glow">
+          <p className="text-[10px] text-muted-foreground mb-0.5">This Month</p>
+          <h2 className="text-lg sm:text-xl font-extrabold text-gradient">{formatAmount(totalSpend)}</h2>
+          <div className="flex items-center gap-1 text-primary text-[10px] font-medium mt-0.5">
+            <ArrowUpRight className="w-3 h-3" />
+            {txnCount} txns
+          </div>
+        </motion.div>
+        <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.05 }} className="glass-card p-3">
+          <p className="text-[10px] text-muted-foreground mb-0.5">Total Spend</p>
+          <h2 className="text-lg sm:text-xl font-extrabold text-foreground">{formatAmount(totalSpendAllTime)}</h2>
+          <p className="text-[10px] text-muted-foreground mt-0.5">All time</p>
+        </motion.div>
+      </div>
+
+      {/* Monthly Budget - or prompt to set */}
+      {budgetEnabled ? (
+        <BudgetBar />
+      ) : (
+        <div className="glass-card p-3 flex items-center justify-between gap-3">
+          <p className="text-xs text-muted-foreground">No monthly budget set yet.</p>
+          <button onClick={() => setShowBudgetEditor(true)} className="shrink-0 rounded-full bg-primary/10 px-3 py-1 text-[11px] font-semibold text-primary">Set Now →</button>
+        </div>
+      )}
+
+      {/* Manage Budget CTA */}
+      <button onClick={() => setShowBudgetEditor(true)} className="glass-card p-3 flex items-center justify-between gap-3 w-full text-left">
+        <div className="flex items-center gap-2">
+          <Wallet className="w-4 h-4 text-primary" />
+          <span className="text-xs font-semibold text-foreground">Manage Budgets</span>
+        </div>
+        <span className="shrink-0 rounded-full bg-primary/10 px-3 py-1 text-[11px] font-semibold text-primary">Edit →</span>
+      </button>
+
+      {/* Side-by-side: Category Budget Usage + Pie Chart */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {/* Category Budget Usage - all categories */}
+        <div className="glass-card p-3">
+          <h3 className="text-[10px] font-semibold text-foreground mb-2">Category Budget</h3>
+          <div className="space-y-1 max-h-48 overflow-y-auto">
+            {allCategoryData.map(c => {
+              const hasBudget = c.budget > 0;
+              const pct = hasBudget ? Math.min((c.spent / c.budget) * 100, 100) : 0;
+              const over = hasBudget && c.spent > c.budget;
+              return (
+                <div key={c.name}>
+                  <div className="flex justify-between text-[9px] mb-0.5">
+                    <span className="text-muted-foreground">{CATEGORY_EMOJI[c.name]} {c.name}</span>
+                    {hasBudget ? (
+                      <span className={`font-medium ${over ? 'text-destructive' : 'text-foreground'}`}>
+                        {formatAmount(c.spent)}/{formatAmount(c.budget)}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">{c.spent > 0 ? formatAmount(c.spent) : '—'}</span>
+                    )}
                   </div>
-                  <span className="text-foreground font-medium">{fmt(c.value)}</span>
+                  {hasBudget ? (
+                    <div className="h-1 bg-secondary rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full transition-all ${over ? 'gradient-danger' : pct >= 80 ? 'gradient-accent' : 'gradient-primary'}`} style={{ width: `${pct}%` }} />
+                    </div>
+                  ) : (
+                    <p className="text-[8px] text-muted-foreground/60 italic">No budget set</p>
+                  )}
                 </div>
-              ))}
-            </div>
+              );
+            })}
           </div>
-        ) : (
-          <p className="text-xs text-muted-foreground text-center py-6">No expenses yet — add your first transaction!</p>
-        )}
+        </div>
+
+        {/* By Category pie - always show */}
+        <div className="glass-card p-3">
+          <h3 className="text-[10px] font-semibold text-foreground mb-2">By Category</h3>
+          {chartData.length > 0 ? (
+            <>
+              <div className="h-44 w-full min-w-0">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart key={categoryChartKey || 'empty'}>
+                    <Pie data={chartData} cx="50%" cy="50%" innerRadius="58%" outerRadius="88%" paddingAngle={chartData.length > 1 ? 3 : 0} minAngle={chartData.length > 1 ? 6 : 0} dataKey="value" stroke="none" isAnimationActive={chartData.length > 1}>
+                      {chartData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                    </Pie>
+                    <Tooltip content={<CustomPieTooltip />} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              {/* Category list below pie - descending order */}
+              <div className="space-y-0.5 mt-2 max-h-24 overflow-y-auto">
+                {chartData.map((item, i) => (
+                  <div key={item.name} className="flex items-center justify-between text-[9px]">
+                    <div className="flex items-center gap-1">
+                      <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                      <span className="text-muted-foreground">{item.name}</span>
+                    </div>
+                    <span className="font-medium text-foreground">{formatAmount(item.value)}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <p className="text-xs text-muted-foreground text-center py-8">No data yet</p>
+          )}
+        </div>
       </div>
 
-      {/* Recent Transactions */}
-      <div className="glass-card p-4">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-foreground">Recent Transactions</h2>
-          <button onClick={() => navigate('/transactions')} className="text-xs text-primary flex items-center gap-0.5">
-            View all <ChevronRight className="w-3 h-3" />
-          </button>
-        </div>
-        {monthTxns.length > 0 ? (
-          <div className="space-y-3">
-            {monthTxns.slice(0, 5).map(t => (
-              <div key={t.id} className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-foreground">{t.title}</p>
-                  <p className="text-xs text-muted-foreground">{t.category} · {format(new Date(t.date), 'dd MMM')}</p>
-                </div>
-                <p className={`text-sm font-semibold ${t.type === 'income' ? 'text-primary' : 'text-destructive'}`}>
-                  {t.type === 'income' ? '+' : '-'}{fmt(t.amount)}
-                </p>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-xs text-muted-foreground text-center py-6">No transactions yet — add your first one!</p>
-        )}
-      </div>
+      <BudgetEditorSheet open={showBudgetEditor} onClose={() => setShowBudgetEditor(false)} />
     </div>
   );
 };
