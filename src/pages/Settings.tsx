@@ -10,6 +10,13 @@ import { toast } from 'sonner';
 const Settings = () => {
   const navigate = useNavigate();
   const { settings, updateSettings } = useStore();
+  const { signOut, user } = useAuth();
+  const [showBudgetEditor, setShowBudgetEditor] = useState(false);
+
+  const handleSignOut = async () => {
+    await signOut();
+    toast.success('Signed out');
+  };
   const [showBudgetEditor, setShowBudgetEditor] = useState(false);
 
   const aiFeatures = [
