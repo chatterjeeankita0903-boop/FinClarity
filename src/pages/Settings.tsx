@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { ArrowLeft, MessageSquare, Brain, Camera, Bell, Shield, Link2, Lock, FileDown, Wallet, ChevronRight } from 'lucide-react';
+import { ArrowLeft, MessageSquare, Brain, Camera, Bell, Shield, Link2, Lock, FileDown, Wallet, ChevronRight, LogOut } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import { Switch } from '@/components/ui/switch';
 import { useNavigate } from 'react-router-dom';
 import { BudgetEditorSheet } from '@/components/BudgetEditorSheet';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 
 const Settings = () => {
   const navigate = useNavigate();
