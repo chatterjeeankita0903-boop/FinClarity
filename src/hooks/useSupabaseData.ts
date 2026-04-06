@@ -325,7 +325,7 @@ export function useSettlements() {
       for (const txId of transactionIds) {
         const { data: tx, error: tErr } = await supabase.from('transactions').select('splits').eq('id', txId).single();
         if (tErr || !tx) continue;
-        const splits = (tx.splits as SplitMember[]).map(s =>
+        const splits = (tx.splits as unknown as SplitMember[]).map(s =>
           s.name.toLowerCase() === memberName.toLowerCase() ? { ...s, settled: true } : s
         );
         await supabase.from('transactions').update({ splits: splits as any }).eq('id', txId);
