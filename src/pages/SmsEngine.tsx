@@ -132,7 +132,8 @@ const DUMMY_SMS: ParsedSms[] = DUMMY_SMS_RAW.map((rawText, i) => {
 
 const SmsEngine = () => {
   const navigate = useNavigate();
-  const { addTransaction, isDuplicate, settings } = useStore();
+  const { addTransaction, isDuplicate } = useTransactions();
+  const { settings } = useSettings();
   const [smsList, setSmsList] = useState<ParsedSms[]>(DUMMY_SMS);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
