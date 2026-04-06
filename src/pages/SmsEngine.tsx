@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Scan, AlertTriangle, Check, Tag, Ban, ChevronDown, ChevronUp, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Category, PaymentMode, useStore } from '@/store/useStore';
+import { Category, PaymentMode, useTransactions, useSettings } from '@/hooks/useSupabaseData';
 import { toast } from 'sonner';
 
 interface ParsedSms {
