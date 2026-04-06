@@ -141,32 +141,61 @@ export type Database = {
           category: string
           created_at: string
           date: string
+          group_id: string | null
           id: string
+          is_ignored: boolean
+          is_split: boolean
           name: string
+          note: string | null
           payment_method: string
+          source: string
+          splits: Json
           user_id: string
+          user_share: number
         }
         Insert: {
           amount?: number
           category?: string
           created_at?: string
           date?: string
+          group_id?: string | null
           id?: string
+          is_ignored?: boolean
+          is_split?: boolean
           name: string
+          note?: string | null
           payment_method?: string
+          source?: string
+          splits?: Json
           user_id: string
+          user_share?: number
         }
         Update: {
           amount?: number
           category?: string
           created_at?: string
           date?: string
+          group_id?: string | null
           id?: string
+          is_ignored?: boolean
+          is_split?: boolean
           name?: string
+          note?: string | null
           payment_method?: string
+          source?: string
+          splits?: Json
           user_id?: string
+          user_share?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "transactions_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ArrowLeft, MessageSquare, Brain, Camera, Bell, Shield, Link2, Lock, FileDown, Wallet, ChevronRight, LogOut } from 'lucide-react';
-import { useStore } from '@/store/useStore';
+import { useSettings } from '@/hooks/useSupabaseData';
 import { Switch } from '@/components/ui/switch';
 import { useNavigate } from 'react-router-dom';
 import { BudgetEditorSheet } from '@/components/BudgetEditorSheet';
@@ -9,13 +9,19 @@ import { toast } from 'sonner';
 
 const Settings = () => {
   const navigate = useNavigate();
-  const { settings, updateSettings } = useStore();
+  const { settings, updateSettings } = useSettings();
   const { signOut, user } = useAuth();
   const [showBudgetEditor, setShowBudgetEditor] = useState(false);
+  const [localSettings, setLocalSettings] = useState(settings);
 
   const handleSignOut = async () => {
     await signOut();
     toast.success('Signed out');
+  };
+
+  const handleToggle = (key: keyof typeof settings, checked: boolean) => {
+    const next = updateSettings({ [key]: checked });
+    setLocalSettings(next);
   };
 
   const aiFeatures = [
@@ -56,7 +62,7 @@ const Settings = () => {
                 <p className="text-[11px] text-muted-foreground">{f.desc}</p>
               </div>
             </div>
-            <Switch checked={settings[f.key]} onCheckedChange={(checked) => updateSettings({ [f.key]: checked })} />
+            <Switch checked={localSettings[f.key]} onCheckedChange={(checked) => handleToggle(f.key, checked)} />
           </div>
         ))}
       </div>
@@ -64,9 +70,7 @@ const Settings = () => {
       <p className="text-xs font-semibold text-muted-foreground tracking-wider uppercase mb-3">Account</p>
       <div className="space-y-1 mb-6">
         {accountItems.map((item) => (
-          <button key={item.label} onClick={item.action}
-            className="w-full flex items-center justify-between py-3 px-4 bg-card rounded-xl border border-border text-left"
-          >
+          <button key={item.label} onClick={item.action} className="w-full flex items-center justify-between py-3 px-4 bg-card rounded-xl border border-border text-left">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-lg bg-secondary flex items-center justify-center text-muted-foreground">
                 <item.icon className="w-4.5 h-4.5" />
@@ -81,14 +85,10 @@ const Settings = () => {
         ))}
       </div>
 
-      {/* Account Info & Sign Out */}
       <div className="glass-card p-4 space-y-3">
         <p className="text-xs text-muted-foreground">Signed in as</p>
         <p className="text-sm font-semibold text-foreground truncate">{user?.email}</p>
-        <button
-          onClick={handleSignOut}
-          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive text-sm font-semibold"
-        >
+        <button onClick={handleSignOut} className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive text-sm font-semibold">
           <LogOut className="w-4 h-4" /> Sign Out
         </button>
       </div>

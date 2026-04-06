@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowUpRight, Wallet, Settings as SettingsIcon } from 'lucide-react';
-import { useStore, getTotalSpend, getCategoryBreakdown, getActiveTransactions, Category, ALL_CATEGORIES } from '@/store/useStore';
+import { useTransactions, useBudget, useSettings, getTotalSpend, getCategoryBreakdown, getActiveTransactions, ALL_CATEGORIES } from '@/hooks/useSupabaseData';
 import { BudgetBar } from '@/components/BudgetBar';
 import { NotificationBell } from '@/components/NotificationBell';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
@@ -37,10 +37,10 @@ const CustomPieTooltip = ({ active, payload }: any) => {
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const transactions = useStore(s => s.transactions);
-  const budget = useStore(s => s.budget);
-  const settings = useStore(s => s.settings);
+  const { transactions } = useTransactions();
   const currentMonth = getCurrentMonth();
+  const { budget } = useBudget(currentMonth);
+  const { settings } = useSettings();
   const totalSpend = useMemo(() => getTotalSpend(transactions, currentMonth), [transactions, currentMonth]);
   const totalSpendAllTime = useMemo(() => getTotalSpend(transactions), [transactions]);
   const categoryData = useMemo(() => getCategoryBreakdown(transactions, currentMonth), [transactions, currentMonth]);
@@ -51,7 +51,6 @@ const Dashboard = () => {
 
   const [showBudgetEditor, setShowBudgetEditor] = useState(false);
 
-  // All categories with budget info
   const allCategoryData = useMemo(() => {
     const spendMap: Record<string, number> = {};
     categoryData.forEach(c => { spendMap[c.name] = c.value; });
@@ -72,7 +71,6 @@ const Dashboard = () => {
 
   return (
     <div className="px-4 pt-14 safe-bottom flex flex-col gap-3 overflow-y-auto" style={{ minHeight: '100dvh' }}>
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <p className="text-xs text-muted-foreground">{getCurrentMonthLabel()}</p>
@@ -86,7 +84,6 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Total Spend Cards */}
       <div className="grid grid-cols-2 gap-3">
         <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="glass-card p-3 glow">
           <p className="text-[10px] text-muted-foreground mb-0.5">This Month</p>
@@ -103,7 +100,6 @@ const Dashboard = () => {
         </motion.div>
       </div>
 
-      {/* Monthly Budget - or prompt to set */}
       {budgetEnabled ? (
         <BudgetBar />
       ) : (
@@ -113,7 +109,6 @@ const Dashboard = () => {
         </div>
       )}
 
-      {/* Manage Budget CTA */}
       <button onClick={() => setShowBudgetEditor(true)} className="glass-card p-3 flex items-center justify-between gap-3 w-full text-left">
         <div className="flex items-center gap-2">
           <Wallet className="w-4 h-4 text-primary" />
@@ -122,9 +117,7 @@ const Dashboard = () => {
         <span className="shrink-0 rounded-full bg-primary/10 px-3 py-1 text-[11px] font-semibold text-primary">Edit →</span>
       </button>
 
-      {/* Side-by-side: Category Budget Usage + Pie Chart */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {/* Category Budget Usage - all categories */}
         <div className="glass-card p-3">
           <h3 className="text-[10px] font-semibold text-foreground mb-2">Category Budget</h3>
           <div className="space-y-1 max-h-48 overflow-y-auto">
@@ -157,7 +150,6 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* By Category pie - always show */}
         <div className="glass-card p-3">
           <h3 className="text-[10px] font-semibold text-foreground mb-2">By Category</h3>
           {chartData.length > 0 ? (
@@ -172,7 +164,6 @@ const Dashboard = () => {
                   </PieChart>
                 </ResponsiveContainer>
               </div>
-              {/* Category list below pie - descending order */}
               <div className="space-y-0.5 mt-2 max-h-24 overflow-y-auto">
                 {chartData.map((item, i) => (
                   <div key={item.name} className="flex items-center justify-between text-[9px]">

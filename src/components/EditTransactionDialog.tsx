@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { X } from 'lucide-react';
-import { Transaction, Category, PaymentMode, useStore } from '@/store/useStore';
+import { Transaction, Category, PaymentMode, useTransactions } from '@/hooks/useSupabaseData';
 import { motion } from 'framer-motion';
+import { toast } from 'sonner';
 
 const CATEGORIES: Category[] = ['Food', 'Transport', 'Shopping', 'Bills', 'Rent', 'Entertainment', 'Health', 'SIP', 'Travel', 'Education', 'Other'];
 const PAYMENT_MODES: PaymentMode[] = ['UPI', 'Credit Card', 'Debit Card', 'Cash', 'Net Banking'];
 
 export const EditTransactionDialog = ({ transaction, onClose }: { transaction: Transaction; onClose: () => void }) => {
-  const { updateTransaction } = useStore();
+  const { updateTransaction } = useTransactions();
   const [form, setForm] = useState({
     merchant: transaction.merchant,
     amount: transaction.amount,
@@ -16,27 +17,25 @@ export const EditTransactionDialog = ({ transaction, onClose }: { transaction: T
     date: transaction.date,
   });
 
-  const handleSave = () => {
-    updateTransaction(transaction.id, {
-      ...form,
-      userShare: transaction.isSplit ? transaction.userShare : form.amount,
-    });
-    onClose();
+  const handleSave = async () => {
+    try {
+      await updateTransaction(transaction.id, {
+        ...form,
+        userShare: transaction.isSplit ? transaction.userShare : form.amount,
+      });
+      onClose();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to update');
+    }
   };
 
   return (
     <div className="sheet-overlay" onClick={onClose}>
-      <motion.div
-        initial={{ y: '100%' }}
-        animate={{ y: 0 }}
-        className="sheet-panel"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} className="sheet-panel" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-6 pt-6 pb-4 flex-shrink-0">
           <h3 className="text-lg font-bold text-foreground">Edit Transaction</h3>
           <button onClick={onClose} className="text-muted-foreground"><X className="w-5 h-5" /></button>
         </div>
-
         <div className="sheet-body px-6 space-y-3">
           <input value={form.merchant} onChange={(e) => setForm({ ...form, merchant: e.target.value })} placeholder="Merchant" className="w-full bg-secondary rounded-lg px-3 py-2.5 text-sm text-foreground outline-none border border-border focus:border-primary" />
           <input type="number" value={form.amount} onChange={(e) => setForm({ ...form, amount: Number(e.target.value) })} placeholder="Amount" className="w-full bg-secondary rounded-lg px-3 py-2.5 text-sm text-foreground outline-none border border-border focus:border-primary" />
@@ -48,11 +47,8 @@ export const EditTransactionDialog = ({ transaction, onClose }: { transaction: T
             {PAYMENT_MODES.map(m => <option key={m} value={m}>{m}</option>)}
           </select>
         </div>
-
         <div className="sheet-footer">
-          <button onClick={handleSave} className="w-full min-h-12 gradient-primary text-primary-foreground font-semibold py-3 rounded-xl">
-            Save Changes
-          </button>
+          <button onClick={handleSave} className="w-full min-h-12 gradient-primary text-primary-foreground font-semibold py-3 rounded-xl">Save Changes</button>
         </div>
       </motion.div>
     </div>
