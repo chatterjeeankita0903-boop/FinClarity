@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Camera, Keyboard, MessageSquare, ArrowLeft, Image } from 'lucide-react';
-import { Category, PaymentMode, TransactionSource, useTransactions, useSettings } from '@/hooks/useSupabaseData';
+import { Category, PaymentMode, useStore, TransactionSource } from '@/store/useStore';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 
@@ -15,8 +15,7 @@ const CATEGORY_EMOJI: Record<string, string> = {
 
 const AddExpense = () => {
   const navigate = useNavigate();
-  const { addTransaction, isDuplicate } = useTransactions();
-  const { settings } = useSettings();
+  const { addTransaction, isDuplicate, settings } = useStore();
   const [mode, setMode] = useState<'manual' | 'sms' | 'camera' | 'image'>('manual');
   const [smsText, setSmsText] = useState('');
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -86,17 +85,13 @@ const AddExpense = () => {
     else toast.error('Could not parse SMS. Please enter manually.');
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     if (!form.merchant || !form.amount) { toast.error('Please fill merchant and amount'); return; }
     const amount = Number(form.amount);
     if (settings.duplicateDetection && isDuplicate(amount, form.merchant, form.date)) { toast.error('Duplicate transaction detected!'); return; }
-    try {
-      await addTransaction({ amount, date: form.date, merchant: form.merchant, category: form.category, paymentMode: form.paymentMode, source: 'manual' as TransactionSource, isSplit: false, userShare: amount, isIgnored: false, groupId: null, splits: [], note: form.note });
-      toast.success('Expense added!');
-      navigate('/transactions');
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to add expense');
-    }
+    addTransaction({ amount, date: form.date, merchant: form.merchant, category: form.category, paymentMode: form.paymentMode, source: 'manual' as TransactionSource, isSplit: false, userShare: amount, isIgnored: false, groupId: null, splits: [], note: form.note });
+    toast.success('Expense added!');
+    navigate('/transactions');
   };
 
   const inputModes = [
@@ -125,7 +120,11 @@ const AddExpense = () => {
 
       {mode === 'sms' && (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mb-3">
-          <textarea value={smsText} onChange={(e) => setSmsText(e.target.value)} placeholder="Paste your bank SMS here..." rows={3} className="w-full bg-secondary rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none border border-border focus:border-primary resize-none" />
+          <textarea value={smsText} onChange={(e) => setSmsText(e.target.value)}
+            placeholder="Paste your bank SMS here..."
+            rows={3}
+            className="w-full bg-secondary rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none border border-border focus:border-primary resize-none"
+          />
           <button onClick={parseSms} className="w-full gradient-primary text-primary-foreground font-semibold py-2.5 rounded-xl mt-2">🧠 Parse with AI</button>
         </motion.div>
       )}
@@ -175,12 +174,14 @@ const AddExpense = () => {
             <input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} placeholder="Add a note..." className="w-full bg-secondary rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none border border-border focus:border-primary" />
           </div>
 
+          {/* Add Expense CTA - moved above input mode tabs */}
           <button onClick={handleSubmit} className="w-full gradient-primary text-primary-foreground font-bold py-3 rounded-xl text-sm">
             Add Expense
           </button>
         </motion.div>
       )}
 
+      {/* Input Mode Selector - moved below the form */}
       <div className={`grid gap-2 mt-3`} style={{ gridTemplateColumns: `repeat(${inputModes.length}, 1fr)` }}>
         {inputModes.map(({ key, icon: Icon, label }) => (
           <button key={key}
@@ -193,6 +194,7 @@ const AddExpense = () => {
         ))}
       </div>
 
+      {/* AI SMS Engine link - moved to bottom */}
       {settings.smsIntelligence && (
         <button onClick={() => navigate('/sms-engine')} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl bg-primary/10 border border-primary/20 mt-3">
           <MessageSquare className="w-4 h-4 text-primary" />

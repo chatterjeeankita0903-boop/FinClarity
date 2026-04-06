@@ -1,8 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Bell, X, AlertTriangle, MessageSquare, TrendingUp } from 'lucide-react';
-import { useTransactions, useBudget, getTotalSpend, getCategoryBreakdown } from '@/hooks/useSupabaseData';
+import { useStore, getTotalSpend, getCategoryBreakdown } from '@/store/useStore';
 import { AnimatePresence, motion } from 'framer-motion';
-import { getCurrentMonth } from '@/lib/dateUtils';
 
 interface Notification {
   id: string;
@@ -15,13 +14,12 @@ interface Notification {
 
 export const NotificationBell = () => {
   const [open, setOpen] = useState(false);
-  const { transactions } = useTransactions();
-  const currentMonth = getCurrentMonth();
-  const { budget } = useBudget(currentMonth);
+  const transactions = useStore(s => s.transactions);
+  const budget = useStore(s => s.budget);
 
   const notifications = useMemo(() => {
     const notifs: Notification[] = [];
-    const totalSpend = getTotalSpend(transactions, currentMonth);
+    const totalSpend = getTotalSpend(transactions, '2026-03');
     const pct = budget.overall > 0 ? (totalSpend / budget.overall) * 100 : 0;
 
     if (pct >= 100) {
@@ -30,7 +28,7 @@ export const NotificationBell = () => {
       notifs.push({ id: 'warn', icon: AlertTriangle, title: 'Budget Alert', message: `${pct.toFixed(0)}% of monthly budget used. ₹${(budget.overall - totalSpend).toLocaleString('en-IN')} remaining.`, type: 'warning', time: 'Now' });
     }
 
-    const catData = getCategoryBreakdown(transactions, currentMonth);
+    const catData = getCategoryBreakdown(transactions, '2026-03');
     catData.forEach(c => {
       const catBudget = budget.categories[c.name as keyof typeof budget.categories];
       if (catBudget && c.value > catBudget) {
@@ -41,9 +39,13 @@ export const NotificationBell = () => {
     notifs.push({ id: 'sms', icon: MessageSquare, title: 'New SMS Detected', message: '3 new transactional SMS parsed and ready to review.', type: 'info', time: '2h ago' });
 
     return notifs;
-  }, [transactions, budget, currentMonth]);
+  }, [transactions, budget]);
 
-  const typeColors = { warning: 'text-accent', info: 'text-info', success: 'text-primary' };
+  const typeColors = {
+    warning: 'text-accent',
+    info: 'text-info',
+    success: 'text-primary',
+  };
 
   return (
     <div className="relative">
@@ -55,11 +57,17 @@ export const NotificationBell = () => {
           </span>
         )}
       </button>
+
       <AnimatePresence>
         {open && (
           <>
             <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-            <motion.div initial={{ opacity: 0, y: -10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -10, scale: 0.95 }} className="absolute right-0 top-12 z-50 w-80 bg-card border border-border rounded-xl shadow-lg overflow-hidden">
+            <motion.div
+              initial={{ opacity: 0, y: -10, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -10, scale: 0.95 }}
+              className="absolute right-0 top-12 z-50 w-80 bg-card border border-border rounded-xl shadow-lg overflow-hidden"
+            >
               <div className="flex items-center justify-between px-4 py-3 border-b border-border">
                 <h4 className="text-sm font-bold text-foreground">Notifications</h4>
                 <button onClick={() => setOpen(false)} className="text-muted-foreground"><X className="w-4 h-4" /></button>

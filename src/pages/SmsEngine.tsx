@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Scan, AlertTriangle, Check, Tag, Ban, ChevronDown, ChevronUp, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Category, PaymentMode, useTransactions, useSettings } from '@/hooks/useSupabaseData';
+import { Category, PaymentMode, useStore } from '@/store/useStore';
 import { toast } from 'sonner';
 
 interface ParsedSms {
@@ -132,8 +132,7 @@ const DUMMY_SMS: ParsedSms[] = DUMMY_SMS_RAW.map((rawText, i) => {
 
 const SmsEngine = () => {
   const navigate = useNavigate();
-  const { addTransaction, isDuplicate } = useTransactions();
-  const { settings } = useSettings();
+  const { addTransaction, isDuplicate, settings } = useStore();
   const [smsList, setSmsList] = useState<ParsedSms[]>(DUMMY_SMS);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
