@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { getCategoryBreakdown, getPaymentModeBreakdown, getActiveTransactions, getTotalSpend, useStore } from '@/store/useStore';
+import { getCategoryBreakdown, getPaymentModeBreakdown, getActiveTransactions, getTotalSpend, useTransactions, useBudget, useGroups } from '@/hooks/useSupabaseData';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, PieChart, Pie, Cell, LineChart, Line, CartesianGrid } from 'recharts';
 import { Brain, TrendingUp, TrendingDown, Lightbulb, CreditCard, CalendarDays, Users, Filter, Heart, Info, ArrowLeftRight } from 'lucide-react';
 import { motion } from 'framer-motion';
