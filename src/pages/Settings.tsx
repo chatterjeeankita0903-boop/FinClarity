@@ -1,14 +1,22 @@
 import { useState } from 'react';
-import { ArrowLeft, MessageSquare, Brain, Camera, Bell, Shield, Link2, Lock, FileDown, Wallet, ChevronRight } from 'lucide-react';
+import { ArrowLeft, MessageSquare, Brain, Camera, Bell, Shield, Link2, Lock, FileDown, Wallet, ChevronRight, LogOut } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import { Switch } from '@/components/ui/switch';
 import { useNavigate } from 'react-router-dom';
 import { BudgetEditorSheet } from '@/components/BudgetEditorSheet';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 
 const Settings = () => {
   const navigate = useNavigate();
   const { settings, updateSettings } = useStore();
+  const { signOut, user } = useAuth();
   const [showBudgetEditor, setShowBudgetEditor] = useState(false);
+
+  const handleSignOut = async () => {
+    await signOut();
+    toast.success('Signed out');
+  };
 
   const aiFeatures = [
     { key: 'smsIntelligence' as const, icon: MessageSquare, label: 'SMS Intelligence', desc: 'Auto-read transactional SMS', color: 'text-primary' },
@@ -71,6 +79,18 @@ const Settings = () => {
             <ChevronRight className="w-4 h-4 text-muted-foreground" />
           </button>
         ))}
+      </div>
+
+      {/* Account Info & Sign Out */}
+      <div className="glass-card p-4 space-y-3">
+        <p className="text-xs text-muted-foreground">Signed in as</p>
+        <p className="text-sm font-semibold text-foreground truncate">{user?.email}</p>
+        <button
+          onClick={handleSignOut}
+          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive text-sm font-semibold"
+        >
+          <LogOut className="w-4 h-4" /> Sign Out
+        </button>
       </div>
 
       <p className="text-center text-[11px] text-muted-foreground mt-8">FinClarity v1.0 · Privacy First · E2E Encrypted</p>
