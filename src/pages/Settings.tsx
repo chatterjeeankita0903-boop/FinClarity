@@ -81,6 +81,18 @@ const Settings = () => {
         ))}
       </div>
 
+      {/* Account Info & Sign Out */}
+      <div className="glass-card p-4 space-y-3">
+        <p className="text-xs text-muted-foreground">Signed in as</p>
+        <p className="text-sm font-semibold text-foreground truncate">{user?.email}</p>
+        <button
+          onClick={handleSignOut}
+          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive text-sm font-semibold"
+        >
+          <LogOut className="w-4 h-4" /> Sign Out
+        </button>
+      </div>
+
       <p className="text-center text-[11px] text-muted-foreground mt-8">FinClarity v1.0 · Privacy First · E2E Encrypted</p>
 
       <BudgetEditorSheet open={showBudgetEditor} onClose={() => setShowBudgetEditor(false)} />
