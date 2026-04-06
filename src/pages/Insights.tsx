@@ -20,9 +20,10 @@ const chartTooltipProps = {
 };
 
 const Insights = () => {
-  const transactions = useStore(s => s.transactions);
-  const budget = useStore(s => s.budget);
-  const groups = useStore(s => s.groups);
+  const { transactions } = useTransactions();
+  const currentMonth = getCurrentMonth();
+  const { budget } = useBudget(currentMonth);
+  const { groups } = useGroups();
   const [activeTab, setActiveTab] = useState<'overview' | 'modes' | 'ai'>('overview');
 
   const recentMonths = useMemo(() => getRecentMonths(6), []);
