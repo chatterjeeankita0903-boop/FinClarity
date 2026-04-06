@@ -17,7 +17,6 @@ const Settings = () => {
     await signOut();
     toast.success('Signed out');
   };
-  const [showBudgetEditor, setShowBudgetEditor] = useState(false);
 
   const aiFeatures = [
     { key: 'smsIntelligence' as const, icon: MessageSquare, label: 'SMS Intelligence', desc: 'Auto-read transactional SMS', color: 'text-primary' },
