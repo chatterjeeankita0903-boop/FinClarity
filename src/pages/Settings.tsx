@@ -1,14 +1,22 @@
 import { useState } from 'react';
-import { ArrowLeft, MessageSquare, Brain, Camera, Bell, Shield, Link2, Lock, FileDown, Wallet, ChevronRight } from 'lucide-react';
+import { ArrowLeft, MessageSquare, Brain, Camera, Bell, Shield, Link2, Lock, FileDown, Wallet, ChevronRight, LogOut } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import { Switch } from '@/components/ui/switch';
 import { useNavigate } from 'react-router-dom';
 import { BudgetEditorSheet } from '@/components/BudgetEditorSheet';
+import { useAuth } from '@/components/AuthProvider';
+import { toast } from 'sonner';
 
 const Settings = () => {
   const navigate = useNavigate();
   const { settings, updateSettings } = useStore();
+  const { signOut, user } = useAuth();
   const [showBudgetEditor, setShowBudgetEditor] = useState(false);
+
+  const handleSignOut = async () => {
+    await signOut();
+    toast.success('Signed out successfully');
+  };
 
   const aiFeatures = [
     { key: 'smsIntelligence' as const, icon: MessageSquare, label: 'SMS Intelligence', desc: 'Auto-read transactional SMS', color: 'text-primary' },
@@ -71,6 +79,28 @@ const Settings = () => {
             <ChevronRight className="w-4 h-4 text-muted-foreground" />
           </button>
         ))}
+      </div>
+
+      <p className="text-xs font-semibold text-muted-foreground tracking-wider uppercase mb-3">Session</p>
+      <div className="space-y-1 mb-6">
+        <div className="py-3 px-4 bg-card rounded-xl border border-border">
+          <p className="text-sm font-semibold text-foreground truncate">{user?.email}</p>
+          <p className="text-[11px] text-muted-foreground">Logged in</p>
+        </div>
+        <button onClick={handleSignOut}
+          className="w-full flex items-center justify-between py-3 px-4 bg-card rounded-xl border border-destructive/30 text-left hover:bg-destructive/10 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-destructive/10 flex items-center justify-center text-destructive">
+              <LogOut className="w-4.5 h-4.5" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-destructive">Sign Out</p>
+              <p className="text-[11px] text-muted-foreground">Log out of your account</p>
+            </div>
+          </div>
+          <ChevronRight className="w-4 h-4 text-muted-foreground" />
+        </button>
       </div>
 
       <p className="text-center text-[11px] text-muted-foreground mt-8">FinClarity v1.0 · Privacy First · E2E Encrypted</p>
