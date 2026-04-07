@@ -156,7 +156,7 @@ const SmsEngine = () => {
         const next = prev.map(s => {
           if (!s.addedToLedger && !s.isIgnored && !s.isDuplicate && s.parsedAt < tenMinAgo) {
             if (!isDuplicate(s.extracted.amount, s.extracted.merchant, s.extracted.date)) {
-              addTransaction({
+              addTransactionMut.mutate({
                 amount: s.extracted.amount,
                 date: s.extracted.date,
                 merchant: s.extracted.merchant,
@@ -181,7 +181,7 @@ const SmsEngine = () => {
       });
     }, 30000); // check every 30s
     return () => clearInterval(interval);
-  }, [addTransaction, isDuplicate]);
+  }, [addTransactionMut, isDuplicate]);
 
   const handleScan = () => {
     setScanning(true);
@@ -193,7 +193,7 @@ const SmsEngine = () => {
       toast.error('Duplicate — already in ledger!');
       return;
     }
-    addTransaction({
+    addTransactionMut.mutate({
       amount: sms.extracted.amount,
       date: sms.extracted.date,
       merchant: sms.extracted.merchant,
