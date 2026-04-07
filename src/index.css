@@ -148,7 +148,7 @@
 
   .sheet-body {
     @apply overflow-y-auto flex-1 min-h-0;
-    padding-bottom: 16px;
+    padding-bottom: calc(var(--bottom-nav-height) + max(env(safe-area-inset-bottom), 0px));
   }
 
   .sheet-footer {
