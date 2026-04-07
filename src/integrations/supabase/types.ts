@@ -14,7 +14,147 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      budgets: {
+        Row: {
+          categories: Json
+          id: string
+          overall: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          categories?: Json
+          id?: string
+          overall?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          categories?: Json
+          id?: string
+          overall?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      groups: {
+        Row: {
+          created_at: string
+          id: string
+          members: Json
+          name: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          members?: Json
+          name: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          members?: Json
+          name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      transactions: {
+        Row: {
+          amount: number
+          category: string
+          created_at: string
+          date: string
+          group_id: string | null
+          id: string
+          is_ignored: boolean
+          is_split: boolean
+          merchant: string
+          note: string | null
+          payment_mode: string
+          source: string
+          splits: Json
+          updated_at: string
+          user_id: string
+          user_share: number
+        }
+        Insert: {
+          amount: number
+          category?: string
+          created_at?: string
+          date: string
+          group_id?: string | null
+          id?: string
+          is_ignored?: boolean
+          is_split?: boolean
+          merchant: string
+          note?: string | null
+          payment_mode?: string
+          source?: string
+          splits?: Json
+          updated_at?: string
+          user_id: string
+          user_share: number
+        }
+        Update: {
+          amount?: number
+          category?: string
+          created_at?: string
+          date?: string
+          group_id?: string | null
+          id?: string
+          is_ignored?: boolean
+          is_split?: boolean
+          merchant?: string
+          note?: string | null
+          payment_mode?: string
+          source?: string
+          splits?: Json
+          updated_at?: string
+          user_id?: string
+          user_share?: number
+        }
+        Relationships: []
+      }
+      user_settings: {
+        Row: {
+          ai_categorisation: boolean
+          budget_alerts: boolean
+          duplicate_detection: boolean
+          id: string
+          monthly_budget: boolean
+          ocr_receipt_scan: boolean
+          sms_intelligence: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ai_categorisation?: boolean
+          budget_alerts?: boolean
+          duplicate_detection?: boolean
+          id?: string
+          monthly_budget?: boolean
+          ocr_receipt_scan?: boolean
+          sms_intelligence?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ai_categorisation?: boolean
+          budget_alerts?: boolean
+          duplicate_detection?: boolean
+          id?: string
+          monthly_budget?: boolean
+          ocr_receipt_scan?: boolean
+          sms_intelligence?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
