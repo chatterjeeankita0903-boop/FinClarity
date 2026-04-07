@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { X } from 'lucide-react';
-import { Transaction, Category, PaymentMode, useStore } from '@/store/useStore';
+import { Transaction, Category, PaymentMode } from '@/store/useStore';
+import { useUpdateTransaction } from '@/hooks/useSupabaseData';
 import { motion } from 'framer-motion';
 
 const CATEGORIES: Category[] = ['Food', 'Transport', 'Shopping', 'Bills', 'Rent', 'Entertainment', 'Health', 'SIP', 'Travel', 'Education', 'Other'];
 const PAYMENT_MODES: PaymentMode[] = ['UPI', 'Credit Card', 'Debit Card', 'Cash', 'Net Banking'];
 
 export const EditTransactionDialog = ({ transaction, onClose }: { transaction: Transaction; onClose: () => void }) => {
-  const { updateTransaction } = useStore();
+  const updateTransaction = useUpdateTransaction();
   const [form, setForm] = useState({
     merchant: transaction.merchant,
     amount: transaction.amount,
@@ -17,11 +18,13 @@ export const EditTransactionDialog = ({ transaction, onClose }: { transaction: T
   });
 
   const handleSave = () => {
-    updateTransaction(transaction.id, {
-      ...form,
-      userShare: transaction.isSplit ? transaction.userShare : form.amount,
-    });
-    onClose();
+    updateTransaction.mutate({
+      id: transaction.id,
+      updates: {
+        ...form,
+        userShare: transaction.isSplit ? transaction.userShare : form.amount,
+      },
+    }, { onSuccess: onClose });
   };
 
   return (
@@ -50,8 +53,8 @@ export const EditTransactionDialog = ({ transaction, onClose }: { transaction: T
         </div>
 
         <div className="sheet-footer">
-          <button onClick={handleSave} className="w-full min-h-12 gradient-primary text-primary-foreground font-semibold py-3 rounded-xl">
-            Save Changes
+          <button onClick={handleSave} disabled={updateTransaction.isPending} className="w-full min-h-12 gradient-primary text-primary-foreground font-semibold py-3 rounded-xl disabled:opacity-50">
+            {updateTransaction.isPending ? 'Saving...' : 'Save Changes'}
           </button>
         </div>
       </motion.div>

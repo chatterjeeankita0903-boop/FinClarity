@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
-import { getCategoryBreakdown, getPaymentModeBreakdown, getActiveTransactions, getTotalSpend, useStore } from '@/store/useStore';
+import { getCategoryBreakdown, getPaymentModeBreakdown, getActiveTransactions, getTotalSpend } from '@/store/useStore';
+import { useStore } from '@/store/useStore';
+import { useTransactions, useBudget, useGroups } from '@/hooks/useSupabaseData';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, PieChart, Pie, Cell, LineChart, Line, CartesianGrid } from 'recharts';
 import { Brain, TrendingUp, TrendingDown, Lightbulb, CreditCard, CalendarDays, Users, Filter, Heart, Info, ArrowLeftRight } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -20,9 +22,9 @@ const chartTooltipProps = {
 };
 
 const Insights = () => {
-  const transactions = useStore(s => s.transactions);
-  const budget = useStore(s => s.budget);
-  const groups = useStore(s => s.groups);
+  const { data: transactions = [] } = useTransactions();
+  const { data: budget = { overall: 0, categories: {} } } = useBudget();
+  const { data: groups = [] } = useGroups();
   const [activeTab, setActiveTab] = useState<'overview' | 'modes' | 'ai'>('overview');
 
   const recentMonths = useMemo(() => getRecentMonths(6), []);

@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Camera, Keyboard, MessageSquare, ArrowLeft, Image } from 'lucide-react';
-import { Category, PaymentMode, useStore, TransactionSource } from '@/store/useStore';
+import { Category, PaymentMode, TransactionSource } from '@/store/useStore';
+import { useStore } from '@/store/useStore';
+import { useAddTransaction, useTransactions } from '@/hooks/useSupabaseData';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 
@@ -15,7 +17,9 @@ const CATEGORY_EMOJI: Record<string, string> = {
 
 const AddExpense = () => {
   const navigate = useNavigate();
-  const { addTransaction, isDuplicate, settings } = useStore();
+  const settings = useStore(s => s.settings);
+  const addTransaction = useAddTransaction();
+  const { data: transactions = [] } = useTransactions();
   const [mode, setMode] = useState<'manual' | 'sms' | 'camera' | 'image'>('manual');
   const [smsText, setSmsText] = useState('');
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -27,6 +31,12 @@ const AddExpense = () => {
     date: new Date().toISOString().split('T')[0],
     note: '',
   });
+
+  const isDuplicate = (amount: number, merchant: string, date: string) => {
+    return transactions.some(t =>
+      t.amount === amount && t.merchant.toLowerCase() === merchant.toLowerCase() && t.date === date
+    );
+  };
 
   const simulateAiExtraction = () => {
     const receiptDb = [
@@ -89,9 +99,13 @@ const AddExpense = () => {
     if (!form.merchant || !form.amount) { toast.error('Please fill merchant and amount'); return; }
     const amount = Number(form.amount);
     if (settings.duplicateDetection && isDuplicate(amount, form.merchant, form.date)) { toast.error('Duplicate transaction detected!'); return; }
-    addTransaction({ amount, date: form.date, merchant: form.merchant, category: form.category, paymentMode: form.paymentMode, source: 'manual' as TransactionSource, isSplit: false, userShare: amount, isIgnored: false, groupId: null, splits: [], note: form.note });
-    toast.success('Expense added!');
-    navigate('/transactions');
+    addTransaction.mutate({
+      amount, date: form.date, merchant: form.merchant, category: form.category,
+      paymentMode: form.paymentMode, source: 'manual' as TransactionSource,
+      isSplit: false, userShare: amount, isIgnored: false, groupId: null, splits: [], note: form.note,
+    }, {
+      onSuccess: () => { toast.success('Expense added!'); navigate('/transactions'); },
+    });
   };
 
   const inputModes = [
@@ -174,14 +188,12 @@ const AddExpense = () => {
             <input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} placeholder="Add a note..." className="w-full bg-secondary rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none border border-border focus:border-primary" />
           </div>
 
-          {/* Add Expense CTA - moved above input mode tabs */}
-          <button onClick={handleSubmit} className="w-full gradient-primary text-primary-foreground font-bold py-3 rounded-xl text-sm">
-            Add Expense
+          <button onClick={handleSubmit} disabled={addTransaction.isPending} className="w-full gradient-primary text-primary-foreground font-bold py-3 rounded-xl text-sm disabled:opacity-50">
+            {addTransaction.isPending ? 'Adding...' : 'Add Expense'}
           </button>
         </motion.div>
       )}
 
-      {/* Input Mode Selector - moved below the form */}
       <div className={`grid gap-2 mt-3`} style={{ gridTemplateColumns: `repeat(${inputModes.length}, 1fr)` }}>
         {inputModes.map(({ key, icon: Icon, label }) => (
           <button key={key}
@@ -194,7 +206,6 @@ const AddExpense = () => {
         ))}
       </div>
 
-      {/* AI SMS Engine link - moved to bottom */}
       {settings.smsIntelligence && (
         <button onClick={() => navigate('/sms-engine')} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl bg-primary/10 border border-primary/20 mt-3">
           <MessageSquare className="w-4 h-4 text-primary" />

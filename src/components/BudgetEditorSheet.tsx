@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Category, Budget, ALL_CATEGORIES, normalizeBudget, useStore } from '@/store/useStore';
+import { Category, Budget, ALL_CATEGORIES, normalizeBudget } from '@/store/useStore';
+import { useStore } from '@/store/useStore';
+import { useBudget, useSetBudget } from '@/hooks/useSupabaseData';
 
 interface BudgetEditorSheetProps {
   open: boolean;
@@ -8,10 +10,10 @@ interface BudgetEditorSheetProps {
 }
 
 export const BudgetEditorSheet = ({ open, onClose }: BudgetEditorSheetProps) => {
-  const budget = useStore((state) => state.budget);
+  const { data: budget = normalizeBudget() } = useBudget();
   const settings = useStore((state) => state.settings);
-  const setBudget = useStore((state) => state.setBudget);
   const updateSettings = useStore((state) => state.updateSettings);
+  const setBudgetMutation = useSetBudget();
   const [draft, setDraft] = useState<Budget>(() => normalizeBudget(budget));
 
   useEffect(() => {
@@ -27,7 +29,7 @@ export const BudgetEditorSheet = ({ open, onClose }: BudgetEditorSheetProps) => 
 
   const handleSave = () => {
     const nextBudget = normalizeBudget(draft);
-    setBudget(nextBudget);
+    setBudgetMutation.mutate(nextBudget);
 
     if (hasAnyBudget && !settings.monthlyBudget) {
       updateSettings({ monthlyBudget: true });
@@ -38,7 +40,6 @@ export const BudgetEditorSheet = ({ open, onClose }: BudgetEditorSheetProps) => 
 
   const updateCategoryBudget = (category: Category, value: string) => {
     const nextValue = Number(value);
-
     setDraft((current) => ({
       ...current,
       categories: {
@@ -103,8 +104,8 @@ export const BudgetEditorSheet = ({ open, onClose }: BudgetEditorSheetProps) => 
         </div>
 
         <div className="sheet-footer">
-          <button onClick={handleSave} className="w-full min-h-12 gradient-primary text-primary-foreground font-semibold py-3 rounded-xl">
-            Set Budget
+          <button onClick={handleSave} disabled={setBudgetMutation.isPending} className="w-full min-h-12 gradient-primary text-primary-foreground font-semibold py-3 rounded-xl disabled:opacity-50">
+            {setBudgetMutation.isPending ? 'Saving...' : 'Set Budget'}
           </button>
         </div>
       </motion.div>

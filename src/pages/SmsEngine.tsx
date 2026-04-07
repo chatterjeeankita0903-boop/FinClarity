@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Scan, AlertTriangle, Check, Tag, Ban, ChevronDown, ChevronUp, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Category, PaymentMode, useStore } from '@/store/useStore';
+import { Category, PaymentMode } from '@/store/useStore';
+import { useStore } from '@/store/useStore';
+import { useAddTransaction, useTransactions } from '@/hooks/useSupabaseData';
 import { toast } from 'sonner';
 
 interface ParsedSms {
@@ -132,7 +134,15 @@ const DUMMY_SMS: ParsedSms[] = DUMMY_SMS_RAW.map((rawText, i) => {
 
 const SmsEngine = () => {
   const navigate = useNavigate();
-  const { addTransaction, isDuplicate, settings } = useStore();
+  const settings = useStore(s => s.settings);
+  const addTransactionMut = useAddTransaction();
+  const { data: existingTransactions = [] } = useTransactions();
+  
+  const isDuplicate = (amount: number, merchant: string, date: string) => {
+    return existingTransactions.some(t =>
+      t.amount === amount && t.merchant.toLowerCase() === merchant.toLowerCase() && t.date === date
+    );
+  };
   const [smsList, setSmsList] = useState<ParsedSms[]>(DUMMY_SMS);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
@@ -146,7 +156,7 @@ const SmsEngine = () => {
         const next = prev.map(s => {
           if (!s.addedToLedger && !s.isIgnored && !s.isDuplicate && s.parsedAt < tenMinAgo) {
             if (!isDuplicate(s.extracted.amount, s.extracted.merchant, s.extracted.date)) {
-              addTransaction({
+              addTransactionMut.mutate({
                 amount: s.extracted.amount,
                 date: s.extracted.date,
                 merchant: s.extracted.merchant,
@@ -171,7 +181,7 @@ const SmsEngine = () => {
       });
     }, 30000); // check every 30s
     return () => clearInterval(interval);
-  }, [addTransaction, isDuplicate]);
+  }, [addTransactionMut, isDuplicate]);
 
   const handleScan = () => {
     setScanning(true);
@@ -183,7 +193,7 @@ const SmsEngine = () => {
       toast.error('Duplicate — already in ledger!');
       return;
     }
-    addTransaction({
+    addTransactionMut.mutate({
       amount: sms.extracted.amount,
       date: sms.extracted.date,
       merchant: sms.extracted.merchant,

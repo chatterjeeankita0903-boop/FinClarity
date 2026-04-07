@@ -1,10 +1,11 @@
 import { useMemo } from 'react';
-import { useStore, getTotalSpend } from '@/store/useStore';
+import { useTransactions, useBudget } from '@/hooks/useSupabaseData';
+import { getTotalSpend } from '@/store/useStore';
 import { getCurrentMonth } from '@/lib/dateUtils';
 
 export const BudgetBar = () => {
-  const transactions = useStore(s => s.transactions);
-  const budget = useStore(s => s.budget);
+  const { data: transactions = [] } = useTransactions();
+  const { data: budget = { overall: 0, categories: {} } } = useBudget();
   const currentMonth = getCurrentMonth();
   const totalSpend = useMemo(() => getTotalSpend(transactions, currentMonth), [transactions, currentMonth]);
   const percentage = budget.overall > 0 ? Math.min((totalSpend / budget.overall) * 100, 100) : 0;
