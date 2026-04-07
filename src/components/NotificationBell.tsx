@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Bell, X, AlertTriangle, MessageSquare, TrendingUp } from 'lucide-react';
-import { useStore, getTotalSpend, getCategoryBreakdown } from '@/store/useStore';
+import { useTransactions, useBudget } from '@/hooks/useSupabaseData';
+import { getTotalSpend, getCategoryBreakdown } from '@/store/useStore';
 import { AnimatePresence, motion } from 'framer-motion';
 
 interface Notification {
@@ -14,8 +15,8 @@ interface Notification {
 
 export const NotificationBell = () => {
   const [open, setOpen] = useState(false);
-  const transactions = useStore(s => s.transactions);
-  const budget = useStore(s => s.budget);
+  const { data: transactions = [] } = useTransactions();
+  const { data: budget = { overall: 0, categories: {} } } = useBudget();
 
   const notifications = useMemo(() => {
     const notifs: Notification[] = [];
@@ -41,11 +42,7 @@ export const NotificationBell = () => {
     return notifs;
   }, [transactions, budget]);
 
-  const typeColors = {
-    warning: 'text-accent',
-    info: 'text-info',
-    success: 'text-primary',
-  };
+  const typeColors = { warning: 'text-accent', info: 'text-info', success: 'text-primary' };
 
   return (
     <div className="relative">

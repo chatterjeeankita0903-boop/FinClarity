@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Search, X, ArrowUpDown } from 'lucide-react';
-import { useStore, Category, PaymentMode } from '@/store/useStore';
+import { Category, PaymentMode } from '@/store/useStore';
+import { useTransactions } from '@/hooks/useSupabaseData';
 import { TransactionCard } from '@/components/TransactionCard';
 import { getRecentMonths, getShortMonthLabel, getCurrentMonth } from '@/lib/dateUtils';
 
@@ -9,7 +10,7 @@ const PAYMENT_MODES: PaymentMode[] = ['UPI', 'Credit Card', 'Debit Card', 'Cash'
 const PAYMENT_ICONS: Record<string, string> = { 'UPI': '📱', 'Credit Card': '💳', 'Debit Card': '💳', 'Cash': '💵', 'Net Banking': '🏦' };
 
 const Transactions = () => {
-  const transactions = useStore(s => s.transactions);
+  const { data: transactions = [], isLoading } = useTransactions();
   const recentMonths = useMemo(() => getRecentMonths(6), []);
   const monthOptions = [{ key: '', label: 'All' }, ...recentMonths.map(m => ({ key: m, label: getShortMonthLabel(m) }))];
 
@@ -29,7 +30,6 @@ const Transactions = () => {
       if (search && !t.merchant.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
     });
-    // Sort by date
     result = [...result].sort((a, b) => {
       const cmp = a.date.localeCompare(b.date);
       return sortOrder === 'newest' ? -cmp : cmp;
@@ -38,8 +38,15 @@ const Transactions = () => {
   }, [transactions, search, selectedMode, selectedCategory, selectedMonth, showIgnored, sortOrder]);
 
   const totalFiltered = useMemo(() => filtered.reduce((s, t) => s + t.userShare, 0), [filtered]);
-
   const hasActiveFilters = !!(selectedMode || selectedCategory || showIgnored);
+
+  if (isLoading) {
+    return (
+      <div className="px-4 pt-14 safe-bottom flex items-center justify-center" style={{ minHeight: '60vh' }}>
+        <p className="text-muted-foreground text-sm">Loading transactions...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="px-4 pt-14 safe-bottom">
@@ -57,7 +64,6 @@ const Transactions = () => {
         {filtered.length} transactions · ₹{totalFiltered.toLocaleString('en-IN')}
       </p>
 
-      {/* Search */}
       <div className="relative mb-3">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <input
@@ -68,21 +74,13 @@ const Transactions = () => {
         />
       </div>
 
-      {/* Payment Mode Tabs */}
       <div className="flex gap-2 overflow-x-auto pb-2 mb-2 scrollbar-hide">
-        <button
-          onClick={() => setSelectedMode('')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border transition-colors ${
-            !selectedMode ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-secondary text-muted-foreground'
-          }`}
+        <button onClick={() => setSelectedMode('')}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border transition-colors ${!selectedMode ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-secondary text-muted-foreground'}`}
         >All</button>
         {PAYMENT_MODES.map(mode => (
-          <button
-            key={mode}
-            onClick={() => setSelectedMode(selectedMode === mode ? '' : mode)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border transition-colors ${
-              selectedMode === mode ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-secondary text-muted-foreground'
-            }`}
+          <button key={mode} onClick={() => setSelectedMode(selectedMode === mode ? '' : mode)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border transition-colors ${selectedMode === mode ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-secondary text-muted-foreground'}`}
           >
             <span>{PAYMENT_ICONS[mode] || '💰'}</span>
             {mode === 'Credit Card' ? 'Card' : mode === 'Debit Card' ? 'Debit' : mode === 'Net Banking' ? 'NEFT' : mode}
@@ -90,39 +88,25 @@ const Transactions = () => {
         ))}
       </div>
 
-      {/* Category Tabs */}
       <div className="flex gap-2 overflow-x-auto pb-2 mb-2 scrollbar-hide">
-        <button
-          onClick={() => setSelectedCategory('')}
-          className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border transition-colors ${
-            !selectedCategory ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-secondary text-muted-foreground'
-          }`}
+        <button onClick={() => setSelectedCategory('')}
+          className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border transition-colors ${!selectedCategory ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-secondary text-muted-foreground'}`}
         >All Categories</button>
         {CATEGORIES.map(cat => (
-          <button
-            key={cat}
-            onClick={() => setSelectedCategory(selectedCategory === cat ? '' : cat)}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border transition-colors ${
-              selectedCategory === cat ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-secondary text-muted-foreground'
-            }`}
+          <button key={cat} onClick={() => setSelectedCategory(selectedCategory === cat ? '' : cat)}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border transition-colors ${selectedCategory === cat ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-secondary text-muted-foreground'}`}
           >{cat}</button>
         ))}
       </div>
 
-      {/* Month Tabs */}
       <div className="flex gap-2 overflow-x-auto pb-3 mb-3 scrollbar-hide">
         {monthOptions.map(m => (
-          <button
-            key={m.key}
-            onClick={() => setSelectedMonth(selectedMonth === m.key ? '' : m.key)}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border transition-colors ${
-              selectedMonth === m.key ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-secondary text-muted-foreground'
-            }`}
+          <button key={m.key} onClick={() => setSelectedMonth(selectedMonth === m.key ? '' : m.key)}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border transition-colors ${selectedMonth === m.key ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-secondary text-muted-foreground'}`}
           >{m.label}</button>
         ))}
       </div>
 
-      {/* Show ignored toggle + clear */}
       <div className="flex items-center justify-between mb-3">
         <label className="flex items-center gap-2 text-xs text-muted-foreground">
           <input type="checkbox" checked={showIgnored} onChange={(e) => setShowIgnored(e.target.checked)} className="rounded accent-primary" />
@@ -135,7 +119,6 @@ const Transactions = () => {
         )}
       </div>
 
-      {/* List */}
       <div className="space-y-3">
         {filtered.length === 0 ? (
           <p className="text-center text-muted-foreground py-12 text-sm">No transactions found</p>

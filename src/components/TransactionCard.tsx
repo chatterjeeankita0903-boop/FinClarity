@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { Edit3, Split, EyeOff, Eye, Trash2 } from 'lucide-react';
-import { Transaction, useStore } from '@/store/useStore';
+import { Transaction } from '@/store/useStore';
+import { useUpdateTransaction, useDeleteTransaction } from '@/hooks/useSupabaseData';
 import { useState } from 'react';
 import { SplitDialog } from './SplitDialog';
 import { EditTransactionDialog } from './EditTransactionDialog';
@@ -25,7 +26,8 @@ const CATEGORY_EMOJI: Record<string, string> = {
 };
 
 export const TransactionCard = ({ transaction: t, compact }: { transaction: Transaction; compact?: boolean }) => {
-  const { ignoreTransaction, deleteTransaction } = useStore();
+  const updateTransaction = useUpdateTransaction();
+  const deleteTransaction = useDeleteTransaction();
   const [showSplit, setShowSplit] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [showActions, setShowActions] = useState(false);
@@ -75,11 +77,11 @@ export const TransactionCard = ({ transaction: t, compact }: { transaction: Tran
             <button onClick={(e) => { e.stopPropagation(); setShowSplit(true); }} className="flex items-center gap-1.5 text-[12px] text-muted-foreground hover:text-primary px-3 py-1.5 rounded-lg bg-secondary/50 transition-colors">
               <Split className="w-3.5 h-3.5" /> Split
             </button>
-            <button onClick={(e) => { e.stopPropagation(); ignoreTransaction(t.id); }} className="flex items-center gap-1.5 text-[12px] text-muted-foreground hover:text-warning px-3 py-1.5 rounded-lg bg-secondary/50 transition-colors">
+            <button onClick={(e) => { e.stopPropagation(); updateTransaction.mutate({ id: t.id, updates: { isIgnored: !t.isIgnored } }); }} className="flex items-center gap-1.5 text-[12px] text-muted-foreground hover:text-warning px-3 py-1.5 rounded-lg bg-secondary/50 transition-colors">
               {t.isIgnored ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
               {t.isIgnored ? 'Show' : 'Ignore'}
             </button>
-            <button onClick={(e) => { e.stopPropagation(); deleteTransaction(t.id); }} className="flex items-center gap-1.5 text-[12px] text-muted-foreground hover:text-destructive px-3 py-1.5 rounded-lg bg-secondary/50 transition-colors ml-auto">
+            <button onClick={(e) => { e.stopPropagation(); deleteTransaction.mutate(t.id); }} className="flex items-center gap-1.5 text-[12px] text-muted-foreground hover:text-destructive px-3 py-1.5 rounded-lg bg-secondary/50 transition-colors ml-auto">
               <Trash2 className="w-3.5 h-3.5" />
             </button>
           </motion.div>

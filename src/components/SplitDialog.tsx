@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { X, Plus, Trash2, Users } from 'lucide-react';
-import { Transaction, useStore } from '@/store/useStore';
+import { Transaction } from '@/store/useStore';
+import { useUpdateTransaction, useGroups } from '@/hooks/useSupabaseData';
 import { motion } from 'framer-motion';
 
 interface Props {
@@ -9,7 +10,8 @@ interface Props {
 }
 
 export const SplitDialog = ({ transaction, onClose }: Props) => {
-  const { splitTransaction, groups } = useStore();
+  const updateTransaction = useUpdateTransaction();
+  const { data: groups = [] } = useGroups();
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(transaction.groupId);
   const [members, setMembers] = useState(
     transaction.splits.length > 0
@@ -44,8 +46,16 @@ export const SplitDialog = ({ transaction, onClose }: Props) => {
       settled: false,
     }));
 
-    splitTransaction(transaction.id, splits, selectedGroupId);
-    onClose();
+    const totalOtherShares = splits.reduce((sum, s) => sum + s.share, 0);
+    updateTransaction.mutate({
+      id: transaction.id,
+      updates: {
+        isSplit: true,
+        splits,
+        userShare: transaction.amount - totalOtherShares,
+        groupId: selectedGroupId ?? transaction.groupId,
+      },
+    }, { onSuccess: onClose });
   };
 
   const otherTotal = mode === 'equal'
@@ -68,7 +78,6 @@ export const SplitDialog = ({ transaction, onClose }: Props) => {
         </div>
 
         <div className="sheet-body px-6">
-          {/* Group Selector */}
           {groups.length > 0 && (
             <div className="mb-4">
               <p className="text-xs text-muted-foreground mb-2">Split with a group</p>
@@ -76,21 +85,13 @@ export const SplitDialog = ({ transaction, onClose }: Props) => {
                 <button
                   onClick={() => handleGroupSelect('')}
                   className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors border ${
-                    !selectedGroupId
-                      ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-border bg-secondary text-secondary-foreground'
+                    !selectedGroupId ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-secondary text-secondary-foreground'
                   }`}
-                >
-                  Custom
-                </button>
+                >Custom</button>
                 {groups.map(g => (
-                  <button
-                    key={g.id}
-                    onClick={() => handleGroupSelect(g.id)}
+                  <button key={g.id} onClick={() => handleGroupSelect(g.id)}
                     className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors border ${
-                      selectedGroupId === g.id
-                        ? 'border-primary bg-primary/10 text-primary'
-                        : 'border-border bg-secondary text-secondary-foreground'
+                      selectedGroupId === g.id ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-secondary text-secondary-foreground'
                     }`}
                   >
                     <Users className="w-3.5 h-3.5" />
@@ -109,20 +110,11 @@ export const SplitDialog = ({ transaction, onClose }: Props) => {
           <div className="space-y-3 mb-4">
             {members.map((m, i) => (
               <div key={i} className="flex items-center gap-2">
-                <input
-                  value={m.name}
-                  onChange={(e) => { const n = [...members]; n[i].name = e.target.value; setMembers(n); }}
-                  placeholder="Name"
-                  className="flex-1 bg-secondary rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none border border-border focus:border-primary"
-                />
+                <input value={m.name} onChange={(e) => { const n = [...members]; n[i].name = e.target.value; setMembers(n); }}
+                  placeholder="Name" className="flex-1 bg-secondary rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none border border-border focus:border-primary" />
                 {mode === 'custom' && (
-                  <input
-                    type="number"
-                    value={m.share || ''}
-                    onChange={(e) => { const n = [...members]; n[i].share = Number(e.target.value); setMembers(n); }}
-                    placeholder="₹"
-                    className="w-24 bg-secondary rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none border border-border focus:border-primary"
-                  />
+                  <input type="number" value={m.share || ''} onChange={(e) => { const n = [...members]; n[i].share = Number(e.target.value); setMembers(n); }}
+                    placeholder="₹" className="w-24 bg-secondary rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none border border-border focus:border-primary" />
                 )}
                 {mode === 'equal' && <span className="text-sm font-medium text-primary w-24 text-right">₹{equalShare.toLocaleString('en-IN')}</span>}
                 <button onClick={() => setMembers(members.filter((_, j) => j !== i))} className="text-muted-foreground hover:text-destructive"><Trash2 className="w-4 h-4" /></button>
@@ -142,8 +134,7 @@ export const SplitDialog = ({ transaction, onClose }: Props) => {
               <span className={`font-bold ${yourShare < 0 ? 'text-destructive' : 'text-primary'}`}>₹{yourShare.toLocaleString('en-IN')}</span>
             </div>
           </div>
-
-          <button onClick={handleSplit} disabled={yourShare < 0} className="w-full min-h-12 gradient-primary text-primary-foreground font-semibold py-3 rounded-xl disabled:opacity-50">
+          <button onClick={handleSplit} disabled={yourShare < 0 || updateTransaction.isPending} className="w-full min-h-12 gradient-primary text-primary-foreground font-semibold py-3 rounded-xl disabled:opacity-50">
             Confirm Split
           </button>
         </div>
