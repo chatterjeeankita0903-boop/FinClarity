@@ -62,9 +62,13 @@ const Groups = () => {
         t.splits.forEach(s => {
           const key = g.members.find(m => m.name.toLowerCase() === s.name.toLowerCase())?.name;
           if (key && memberMap[key] !== undefined) {
-            memberMap[key].total += s.share;
+            // Only count unsettled splits toward owed balance
+            if (!s.settled) {
+              memberMap[key].total += s.share;
+              memberMap[key].settled = false;
+            }
+            // Always count toward cumulative individual expenses
             memberExpenses[key] = (memberExpenses[key] || 0) + s.share;
-            if (!s.settled) memberMap[key].settled = false;
           }
         });
       });
