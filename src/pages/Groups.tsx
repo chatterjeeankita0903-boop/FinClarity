@@ -221,12 +221,12 @@ const Groups = () => {
                       <div className="flex items-center gap-2 pt-2">
                         {netBalance > 0 ? (
                           <button
-                            onClick={() => { members.filter(m => !m.settled && m.amount > 0).forEach(m => settleUp(g.id, m.id)); }}
+                            onClick={() => { members.filter(m => !m.settled && m.amount > 0).forEach(m => settleUp(g.id, m.name)); }}
                             className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-primary/10 border border-primary/30 text-primary text-sm font-semibold transition-colors hover:bg-primary/20"
                           >💸 Settle Up — {formatAmount(netBalance)}</button>
                         ) : netBalance < 0 ? (
                           <button
-                            onClick={() => { members.filter(m => !m.settled && m.amount < 0).forEach(m => settleUp(g.id, m.id)); }}
+                            onClick={() => { members.filter(m => !m.settled && m.amount < 0).forEach(m => settleUp(g.id, m.name)); }}
                             className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive text-sm font-semibold transition-colors hover:bg-destructive/20"
                           >💸 Pay {formatAmount(netBalance)}</button>
                         ) : null}
