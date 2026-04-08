@@ -32,15 +32,23 @@ const Groups = () => {
     });
   };
 
-  const settleUp = (groupId: string, memberId: string) => {
+  const settleUp = (groupId: string, memberName: string) => {
+    const normalizedMemberName = memberName.trim().toLowerCase();
+
     transactions.forEach(t => {
       if (t.groupId !== groupId) return;
-      const hasMember = t.splits.some(s => s.id === memberId && !s.settled);
+
+      const hasMember = t.splits.some(
+        s => s.name.trim().toLowerCase() === normalizedMemberName && !s.settled,
+      );
       if (!hasMember) return;
+
       updateTransaction.mutate({
         id: t.id,
         updates: {
-          splits: t.splits.map(s => s.id === memberId ? { ...s, settled: true } : s),
+          splits: t.splits.map(s =>
+            s.name.trim().toLowerCase() === normalizedMemberName ? { ...s, settled: true } : s,
+          ),
         },
       });
     });
@@ -213,12 +221,12 @@ const Groups = () => {
                       <div className="flex items-center gap-2 pt-2">
                         {netBalance > 0 ? (
                           <button
-                            onClick={() => { members.filter(m => !m.settled && m.amount > 0).forEach(m => settleUp(g.id, m.id)); }}
+                            onClick={() => { members.filter(m => !m.settled && m.amount > 0).forEach(m => settleUp(g.id, m.name)); }}
                             className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-primary/10 border border-primary/30 text-primary text-sm font-semibold transition-colors hover:bg-primary/20"
                           >💸 Settle Up — {formatAmount(netBalance)}</button>
                         ) : netBalance < 0 ? (
                           <button
-                            onClick={() => { members.filter(m => !m.settled && m.amount < 0).forEach(m => settleUp(g.id, m.id)); }}
+                            onClick={() => { members.filter(m => !m.settled && m.amount < 0).forEach(m => settleUp(g.id, m.name)); }}
                             className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive text-sm font-semibold transition-colors hover:bg-destructive/20"
                           >💸 Pay {formatAmount(netBalance)}</button>
                         ) : null}
