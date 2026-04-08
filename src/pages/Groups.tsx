@@ -32,15 +32,23 @@ const Groups = () => {
     });
   };
 
-  const settleUp = (groupId: string, memberId: string) => {
+  const settleUp = (groupId: string, memberName: string) => {
+    const normalizedMemberName = memberName.trim().toLowerCase();
+
     transactions.forEach(t => {
       if (t.groupId !== groupId) return;
-      const hasMember = t.splits.some(s => s.id === memberId && !s.settled);
+
+      const hasMember = t.splits.some(
+        s => s.name.trim().toLowerCase() === normalizedMemberName && !s.settled,
+      );
       if (!hasMember) return;
+
       updateTransaction.mutate({
         id: t.id,
         updates: {
-          splits: t.splits.map(s => s.id === memberId ? { ...s, settled: true } : s),
+          splits: t.splits.map(s =>
+            s.name.trim().toLowerCase() === normalizedMemberName ? { ...s, settled: true } : s,
+          ),
         },
       });
     });
