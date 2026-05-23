@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Camera, Keyboard, MessageSquare, ArrowLeft, Image } from 'lucide-react';
+import { Camera, Keyboard, MessageSquare, ArrowLeft, Image, FileText, Loader2 } from 'lucide-react';
 import { Category, PaymentMode, TransactionSource } from '@/store/useStore';
 import { useStore } from '@/store/useStore';
 import { useAddTransaction, useTransactions } from '@/hooks/useSupabaseData';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 const CATEGORIES: Category[] = ['Food', 'Transport', 'Shopping', 'Bills', 'Rent', 'Entertainment', 'Health', 'SIP', 'Travel', 'Education', 'Other'];
 const PAYMENT_MODES: PaymentMode[] = ['UPI', 'Credit Card', 'Debit Card', 'Cash', 'Net Banking'];
@@ -20,9 +21,11 @@ const AddExpense = () => {
   const settings = useStore(s => s.settings);
   const addTransaction = useAddTransaction();
   const { data: transactions = [] } = useTransactions();
-  const [mode, setMode] = useState<'manual' | 'sms' | 'camera' | 'image'>('manual');
+  const [mode, setMode] = useState<'manual' | 'sms' | 'camera' | 'image' | 'statement'>('manual');
   const [smsText, setSmsText] = useState('');
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiStatus, setAiStatus] = useState('');
   const [form, setForm] = useState({
     merchant: '',
     amount: '',
@@ -38,61 +41,109 @@ const AddExpense = () => {
     );
   };
 
-  const simulateAiExtraction = () => {
-    const receiptDb = [
-      { merchant: 'BigBazaar', amount: 2340, category: 'Shopping' as Category, paymentMode: 'Debit Card' as PaymentMode },
-      { merchant: 'Dominos Pizza', amount: 649, category: 'Food' as Category, paymentMode: 'UPI' as PaymentMode },
-      { merchant: 'Shell Petrol Pump', amount: 1500, category: 'Transport' as Category, paymentMode: 'Credit Card' as PaymentMode },
-      { merchant: 'Reliance Fresh', amount: 875, category: 'Food' as Category, paymentMode: 'UPI' as PaymentMode },
-      { merchant: 'Apollo Pharmacy', amount: 1230, category: 'Health' as Category, paymentMode: 'Cash' as PaymentMode },
-      { merchant: 'Croma Electronics', amount: 4599, category: 'Shopping' as Category, paymentMode: 'Credit Card' as PaymentMode },
-      { merchant: 'IRCTC', amount: 1850, category: 'Travel' as Category, paymentMode: 'Net Banking' as PaymentMode },
-      { merchant: "McDonald's", amount: 389, category: 'Food' as Category, paymentMode: 'UPI' as PaymentMode },
-    ];
-    return receiptDb[Math.floor(Math.random() * receiptDb.length)];
+  const fileToBase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+  const callParseExpense = async (payload: { mode: 'sms' | 'receipt' | 'statement'; text?: string; imageBase64?: string }) => {
+    const { data, error } = await supabase.functions.invoke('parse-expense', { body: payload });
+    if (error) throw new Error(error.message || 'AI request failed');
+    if (data?.error) throw new Error(data.error);
+    return data;
   };
 
-  const handleImageCapture = (source: 'camera' | 'gallery') => {
+  const handleImageCapture = (source: 'camera' | 'gallery' | 'statement') => {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
     if (source === 'camera') input.capture = 'environment';
-    input.onchange = (e) => {
+    input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          setImagePreview(ev.target?.result as string);
-          const extracted = simulateAiExtraction();
-          setTimeout(() => {
-            setForm({ ...form, merchant: extracted.merchant, amount: String(extracted.amount), category: extracted.category, paymentMode: extracted.paymentMode });
-            setMode('manual');
-            toast.success(`🧠 AI extracted: ₹${extracted.amount.toLocaleString('en-IN')} at ${extracted.merchant}`);
-          }, 2000);
-        };
-        reader.readAsDataURL(file);
+      if (!file) return;
+      try {
+        const base64 = await fileToBase64(file);
+        setImagePreview(base64);
+        setAiLoading(true);
+        setAiStatus(source === 'statement' ? 'Parsing account statement…' : 'Extracting receipt details…');
+
+        if (source === 'statement') {
+          const result = await callParseExpense({ mode: 'statement', imageBase64: base64 });
+          const expenses = (result?.expenses || []).filter((x: any) => x && Number(x.amount) > 0);
+          if (expenses.length === 0) {
+            toast.error('No expenses found in statement');
+            return;
+          }
+          let added = 0;
+          for (const ex of expenses) {
+            const amount = Number(ex.amount);
+            const date = ex.date || form.date;
+            if (settings.duplicateDetection && isDuplicate(amount, ex.merchant, date)) continue;
+            await new Promise<void>((resolve) => {
+              addTransaction.mutate({
+                amount, date, merchant: ex.merchant,
+                category: (ex.category as Category) || 'Other',
+                paymentMode: (ex.paymentMode as PaymentMode) || 'UPI',
+                source: 'ocr' as TransactionSource,
+                isSplit: false, userShare: amount, isIgnored: false,
+                groupId: null, splits: [], note: ex.note || 'From statement',
+              }, { onSuccess: () => { added++; resolve(); }, onError: () => resolve() });
+            });
+          }
+          toast.success(`🧠 Added ${added} of ${expenses.length} transactions`);
+          navigate('/transactions');
+        } else {
+          const ex = await callParseExpense({ mode: 'receipt', imageBase64: base64 });
+          setForm({
+            ...form,
+            merchant: ex.merchant || '',
+            amount: ex.amount ? String(ex.amount) : '',
+            category: (ex.category as Category) || form.category,
+            paymentMode: (ex.paymentMode as PaymentMode) || form.paymentMode,
+            date: ex.date || form.date,
+            note: ex.note || form.note,
+          });
+          setMode('manual');
+          toast.success(`🧠 AI extracted: ₹${Number(ex.amount).toLocaleString('en-IN')} at ${ex.merchant}`);
+        }
+      } catch (err: any) {
+        toast.error(err.message || 'AI extraction failed');
+      } finally {
+        setAiLoading(false);
+        setAiStatus('');
       }
     };
     input.click();
   };
 
-  const parseSms = () => {
-    const amountMatch = smsText.match(/(?:Rs\.?|INR|₹)\s*([\d,]+(?:\.\d{2})?)/i);
-    const amount = amountMatch ? Number(amountMatch[1].replace(/,/g, '')) : 0;
-    const merchantPatterns = [/(?:at|to|for|@)\s+([A-Za-z0-9\s]+?)(?:\s+on|\s+ref|\s+via|\.|\s*$)/i, /(?:spent|paid|debited).*?(?:at|to|for)\s+([A-Za-z0-9\s]+)/i];
-    let merchant = 'Unknown';
-    for (const pattern of merchantPatterns) { const match = smsText.match(pattern); if (match) { merchant = match[1].trim(); break; } }
-    const isCredit = /credited|received|refund/i.test(smsText);
-    const paymentMode: PaymentMode = /upi/i.test(smsText) ? 'UPI' : /credit\s*card/i.test(smsText) ? 'Credit Card' : /debit\s*card/i.test(smsText) ? 'Debit Card' : /neft|imps|net\s*banking/i.test(smsText) ? 'Net Banking' : 'UPI';
-    let category: Category = 'Other';
-    const lm = merchant.toLowerCase();
-    if (/swiggy|zomato|food|restaurant|cafe|dominos/i.test(lm)) category = 'Food';
-    else if (/uber|ola|metro|petrol|fuel/i.test(lm)) category = 'Transport';
-    else if (/amazon|flipkart|myntra|shopping/i.test(lm)) category = 'Shopping';
-    else if (/electricity|water|gas|broadband|jio|airtel/i.test(lm)) category = 'Bills';
-    else if (/netflix|spotify|hotstar|prime/i.test(lm)) category = 'Entertainment';
-    if (amount > 0 && !isCredit) { setForm({ ...form, merchant, amount: String(amount), category, paymentMode }); setMode('manual'); toast.success(`Parsed: ₹${amount} at ${merchant}`); }
-    else toast.error('Could not parse SMS. Please enter manually.');
+  const parseSms = async () => {
+    if (!smsText.trim()) { toast.error('Paste an SMS first'); return; }
+    try {
+      setAiLoading(true);
+      setAiStatus('Parsing SMS with AI…');
+      const ex = await callParseExpense({ mode: 'sms', text: smsText });
+      const amount = Number(ex.amount);
+      if (!amount) { toast.error('This SMS does not look like an expense'); return; }
+      setForm({
+        ...form,
+        merchant: ex.merchant || 'Unknown',
+        amount: String(amount),
+        category: (ex.category as Category) || 'Other',
+        paymentMode: (ex.paymentMode as PaymentMode) || 'UPI',
+        date: ex.date || form.date,
+        note: ex.note || form.note,
+      });
+      setMode('manual');
+      toast.success(`🧠 Parsed: ₹${amount.toLocaleString('en-IN')} at ${ex.merchant}`);
+    } catch (err: any) {
+      toast.error(err.message || 'AI parsing failed');
+    } finally {
+      setAiLoading(false);
+      setAiStatus('');
+    }
   };
 
   const handleSubmit = () => {
@@ -113,6 +164,7 @@ const AddExpense = () => {
     { key: 'sms', icon: MessageSquare, label: 'SMS', always: false, setting: 'smsIntelligence' as const },
     { key: 'camera', icon: Camera, label: 'Camera', always: false, setting: 'ocrReceiptScan' as const },
     { key: 'image', icon: Image, label: 'Upload', always: false, setting: 'ocrReceiptScan' as const },
+    { key: 'statement', icon: FileText, label: 'Statement', always: false, setting: 'ocrReceiptScan' as const },
   ].filter(m => m.always || settings[m.setting!]);
 
   return (
@@ -126,8 +178,8 @@ const AddExpense = () => {
         <div className="mb-3 rounded-xl overflow-hidden border border-border/50">
           <img src={imagePreview} alt="Receipt" className="w-full max-h-32 object-cover" />
           <div className="px-3 py-1.5 bg-secondary/50 flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-            <span className="text-[10px] text-muted-foreground">AI scanning receipt...</span>
+            {aiLoading ? <Loader2 className="w-3 h-3 text-primary animate-spin" /> : <div className="w-2 h-2 rounded-full bg-primary" />}
+            <span className="text-[10px] text-muted-foreground">{aiStatus || 'Ready'}</span>
           </div>
         </div>
       )}
@@ -139,7 +191,10 @@ const AddExpense = () => {
             rows={3}
             className="w-full bg-secondary rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none border border-border focus:border-primary resize-none"
           />
-          <button onClick={parseSms} className="w-full gradient-primary text-primary-foreground font-semibold py-2.5 rounded-xl mt-2">🧠 Parse with AI</button>
+          <button onClick={parseSms} disabled={aiLoading} className="w-full gradient-primary text-primary-foreground font-semibold py-2.5 rounded-xl mt-2 disabled:opacity-50 flex items-center justify-center gap-2">
+            {aiLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+            {aiLoading ? 'Parsing…' : '🧠 Parse with AI'}
+          </button>
         </motion.div>
       )}
 
@@ -197,7 +252,12 @@ const AddExpense = () => {
       <div className={`grid gap-2 mt-3`} style={{ gridTemplateColumns: `repeat(${inputModes.length}, 1fr)` }}>
         {inputModes.map(({ key, icon: Icon, label }) => (
           <button key={key}
-            onClick={() => { if (key === 'camera') { handleImageCapture('camera'); return; } if (key === 'image') { handleImageCapture('gallery'); return; } setMode(key as 'manual' | 'sms'); }}
+            onClick={() => {
+              if (key === 'camera') { handleImageCapture('camera'); return; }
+              if (key === 'image') { handleImageCapture('gallery'); return; }
+              if (key === 'statement') { handleImageCapture('statement'); return; }
+              setMode(key as 'manual' | 'sms');
+            }}
             className={`glass-card p-2.5 flex flex-col items-center gap-1 transition-all ${mode === key ? 'border-primary glow' : 'border-border/50'}`}
           >
             <Icon className={`w-4 h-4 ${mode === key ? 'text-primary' : 'text-muted-foreground'}`} />
