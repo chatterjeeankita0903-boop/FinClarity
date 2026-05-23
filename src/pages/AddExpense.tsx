@@ -21,7 +21,7 @@ const AddExpense = () => {
   const settings = useStore(s => s.settings);
   const addTransaction = useAddTransaction();
   const { data: transactions = [] } = useTransactions();
-  const [mode, setMode] = useState<'manual' | 'sms' | 'camera' | 'image' | 'statement'>('manual');
+  const [mode, setMode] = useState<'manual' | 'sms' | 'camera' | 'image'>('manual');
   const [smsText, setSmsText] = useState('');
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
@@ -49,14 +49,14 @@ const AddExpense = () => {
       reader.readAsDataURL(file);
     });
 
-  const callParseExpense = async (payload: { mode: 'sms' | 'receipt' | 'statement'; text?: string; imageBase64?: string }) => {
+  const callParseExpense = async (payload: { mode: 'sms' | 'receipt'; text?: string; imageBase64?: string }) => {
     const { data, error } = await supabase.functions.invoke('parse-expense', { body: payload });
     if (error) throw new Error(error.message || 'AI request failed');
     if (data?.error) throw new Error(data.error);
     return data;
   };
 
-  const handleImageCapture = (source: 'camera' | 'gallery' | 'statement') => {
+  const handleImageCapture = (source: 'camera' | 'gallery') => {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
