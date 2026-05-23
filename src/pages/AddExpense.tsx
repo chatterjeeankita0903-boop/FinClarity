@@ -68,47 +68,20 @@ const AddExpense = () => {
         const base64 = await fileToBase64(file);
         setImagePreview(base64);
         setAiLoading(true);
-        setAiStatus(source === 'statement' ? 'Parsing account statement…' : 'Extracting receipt details…');
+        setAiStatus('Extracting receipt details…');
 
-        if (source === 'statement') {
-          const result = await callParseExpense({ mode: 'statement', imageBase64: base64 });
-          const expenses = (result?.expenses || []).filter((x: any) => x && Number(x.amount) > 0);
-          if (expenses.length === 0) {
-            toast.error('No expenses found in statement');
-            return;
-          }
-          let added = 0;
-          for (const ex of expenses) {
-            const amount = Number(ex.amount);
-            const date = ex.date || form.date;
-            if (settings.duplicateDetection && isDuplicate(amount, ex.merchant, date)) continue;
-            await new Promise<void>((resolve) => {
-              addTransaction.mutate({
-                amount, date, merchant: ex.merchant,
-                category: (ex.category as Category) || 'Other',
-                paymentMode: (ex.paymentMode as PaymentMode) || 'UPI',
-                source: 'ocr' as TransactionSource,
-                isSplit: false, userShare: amount, isIgnored: false,
-                groupId: null, splits: [], note: ex.note || 'From statement',
-              }, { onSuccess: () => { added++; resolve(); }, onError: () => resolve() });
-            });
-          }
-          toast.success(`🧠 Added ${added} of ${expenses.length} transactions`);
-          navigate('/transactions');
-        } else {
-          const ex = await callParseExpense({ mode: 'receipt', imageBase64: base64 });
-          setForm({
-            ...form,
-            merchant: ex.merchant || '',
-            amount: ex.amount ? String(ex.amount) : '',
-            category: (ex.category as Category) || form.category,
-            paymentMode: (ex.paymentMode as PaymentMode) || form.paymentMode,
-            date: ex.date || form.date,
-            note: ex.note || form.note,
-          });
-          setMode('manual');
-          toast.success(`🧠 AI extracted: ₹${Number(ex.amount).toLocaleString('en-IN')} at ${ex.merchant}`);
-        }
+        const ex = await callParseExpense({ mode: 'receipt', imageBase64: base64 });
+        setForm({
+          ...form,
+          merchant: ex.merchant || '',
+          amount: ex.amount ? String(ex.amount) : '',
+          category: (ex.category as Category) || form.category,
+          paymentMode: (ex.paymentMode as PaymentMode) || form.paymentMode,
+          date: ex.date || form.date,
+          note: ex.note || form.note,
+        });
+        setMode('manual');
+        toast.success(`🧠 AI extracted: ₹${Number(ex.amount).toLocaleString('en-IN')} at ${ex.merchant}`);
       } catch (err: any) {
         toast.error(err.message || 'AI extraction failed');
       } finally {
