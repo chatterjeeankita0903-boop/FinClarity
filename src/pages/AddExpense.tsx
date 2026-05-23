@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Camera, Keyboard, MessageSquare, ArrowLeft, Image, FileText, Loader2 } from 'lucide-react';
+import { Camera, Keyboard, MessageSquare, ArrowLeft, Image, Loader2 } from 'lucide-react';
 import { Category, PaymentMode, TransactionSource } from '@/store/useStore';
 import { useStore } from '@/store/useStore';
 import { useAddTransaction, useTransactions } from '@/hooks/useSupabaseData';
@@ -21,7 +21,7 @@ const AddExpense = () => {
   const settings = useStore(s => s.settings);
   const addTransaction = useAddTransaction();
   const { data: transactions = [] } = useTransactions();
-  const [mode, setMode] = useState<'manual' | 'sms' | 'camera' | 'image' | 'statement'>('manual');
+  const [mode, setMode] = useState<'manual' | 'sms' | 'camera' | 'image'>('manual');
   const [smsText, setSmsText] = useState('');
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
@@ -49,14 +49,14 @@ const AddExpense = () => {
       reader.readAsDataURL(file);
     });
 
-  const callParseExpense = async (payload: { mode: 'sms' | 'receipt' | 'statement'; text?: string; imageBase64?: string }) => {
+  const callParseExpense = async (payload: { mode: 'sms' | 'receipt'; text?: string; imageBase64?: string }) => {
     const { data, error } = await supabase.functions.invoke('parse-expense', { body: payload });
     if (error) throw new Error(error.message || 'AI request failed');
     if (data?.error) throw new Error(data.error);
     return data;
   };
 
-  const handleImageCapture = (source: 'camera' | 'gallery' | 'statement') => {
+  const handleImageCapture = (source: 'camera' | 'gallery') => {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
@@ -68,47 +68,20 @@ const AddExpense = () => {
         const base64 = await fileToBase64(file);
         setImagePreview(base64);
         setAiLoading(true);
-        setAiStatus(source === 'statement' ? 'Parsing account statement…' : 'Extracting receipt details…');
+        setAiStatus('Extracting receipt details…');
 
-        if (source === 'statement') {
-          const result = await callParseExpense({ mode: 'statement', imageBase64: base64 });
-          const expenses = (result?.expenses || []).filter((x: any) => x && Number(x.amount) > 0);
-          if (expenses.length === 0) {
-            toast.error('No expenses found in statement');
-            return;
-          }
-          let added = 0;
-          for (const ex of expenses) {
-            const amount = Number(ex.amount);
-            const date = ex.date || form.date;
-            if (settings.duplicateDetection && isDuplicate(amount, ex.merchant, date)) continue;
-            await new Promise<void>((resolve) => {
-              addTransaction.mutate({
-                amount, date, merchant: ex.merchant,
-                category: (ex.category as Category) || 'Other',
-                paymentMode: (ex.paymentMode as PaymentMode) || 'UPI',
-                source: 'ocr' as TransactionSource,
-                isSplit: false, userShare: amount, isIgnored: false,
-                groupId: null, splits: [], note: ex.note || 'From statement',
-              }, { onSuccess: () => { added++; resolve(); }, onError: () => resolve() });
-            });
-          }
-          toast.success(`🧠 Added ${added} of ${expenses.length} transactions`);
-          navigate('/transactions');
-        } else {
-          const ex = await callParseExpense({ mode: 'receipt', imageBase64: base64 });
-          setForm({
-            ...form,
-            merchant: ex.merchant || '',
-            amount: ex.amount ? String(ex.amount) : '',
-            category: (ex.category as Category) || form.category,
-            paymentMode: (ex.paymentMode as PaymentMode) || form.paymentMode,
-            date: ex.date || form.date,
-            note: ex.note || form.note,
-          });
-          setMode('manual');
-          toast.success(`🧠 AI extracted: ₹${Number(ex.amount).toLocaleString('en-IN')} at ${ex.merchant}`);
-        }
+        const ex = await callParseExpense({ mode: 'receipt', imageBase64: base64 });
+        setForm({
+          ...form,
+          merchant: ex.merchant || '',
+          amount: ex.amount ? String(ex.amount) : '',
+          category: (ex.category as Category) || form.category,
+          paymentMode: (ex.paymentMode as PaymentMode) || form.paymentMode,
+          date: ex.date || form.date,
+          note: ex.note || form.note,
+        });
+        setMode('manual');
+        toast.success(`🧠 AI extracted: ₹${Number(ex.amount).toLocaleString('en-IN')} at ${ex.merchant}`);
       } catch (err: any) {
         toast.error(err.message || 'AI extraction failed');
       } finally {
@@ -164,7 +137,6 @@ const AddExpense = () => {
     { key: 'sms', icon: MessageSquare, label: 'SMS', always: false, setting: 'smsIntelligence' as const },
     { key: 'camera', icon: Camera, label: 'Camera', always: false, setting: 'ocrReceiptScan' as const },
     { key: 'image', icon: Image, label: 'Upload', always: false, setting: 'ocrReceiptScan' as const },
-    { key: 'statement', icon: FileText, label: 'Statement', always: false, setting: 'ocrReceiptScan' as const },
   ].filter(m => m.always || settings[m.setting!]);
 
   return (
@@ -253,10 +225,9 @@ const AddExpense = () => {
         {inputModes.map(({ key, icon: Icon, label }) => (
           <button key={key}
             onClick={() => {
-              if (key === 'camera') { handleImageCapture('camera'); return; }
-              if (key === 'image') { handleImageCapture('gallery'); return; }
-              if (key === 'statement') { handleImageCapture('statement'); return; }
-              setMode(key as 'manual' | 'sms');
+            if (key === 'camera') { handleImageCapture('camera'); return; }
+            if (key === 'image') { handleImageCapture('gallery'); return; }
+            setMode(key as 'manual' | 'sms');
             }}
             className={`glass-card p-2.5 flex flex-col items-center gap-1 transition-all ${mode === key ? 'border-primary glow' : 'border-border/50'}`}
           >
