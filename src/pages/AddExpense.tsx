@@ -164,7 +164,6 @@ const AddExpense = () => {
     { key: 'sms', icon: MessageSquare, label: 'SMS', always: false, setting: 'smsIntelligence' as const },
     { key: 'camera', icon: Camera, label: 'Camera', always: false, setting: 'ocrReceiptScan' as const },
     { key: 'image', icon: Image, label: 'Upload', always: false, setting: 'ocrReceiptScan' as const },
-    { key: 'statement', icon: FileText, label: 'Statement', always: false, setting: 'ocrReceiptScan' as const },
   ].filter(m => m.always || settings[m.setting!]);
 
   return (
@@ -253,10 +252,9 @@ const AddExpense = () => {
         {inputModes.map(({ key, icon: Icon, label }) => (
           <button key={key}
             onClick={() => {
-              if (key === 'camera') { handleImageCapture('camera'); return; }
-              if (key === 'image') { handleImageCapture('gallery'); return; }
-              if (key === 'statement') { handleImageCapture('statement'); return; }
-              setMode(key as 'manual' | 'sms');
+            if (key === 'camera') { handleImageCapture('camera'); return; }
+            if (key === 'image') { handleImageCapture('gallery'); return; }
+            setMode(key as 'manual' | 'sms');
             }}
             className={`glass-card p-2.5 flex flex-col items-center gap-1 transition-all ${mode === key ? 'border-primary glow' : 'border-border/50'}`}
           >
