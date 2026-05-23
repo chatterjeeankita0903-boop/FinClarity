@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Camera, Keyboard, MessageSquare, ArrowLeft, Image, FileText, Loader2 } from 'lucide-react';
+import { Camera, Keyboard, MessageSquare, ArrowLeft, Image, Loader2 } from 'lucide-react';
 import { Category, PaymentMode, TransactionSource } from '@/store/useStore';
 import { useStore } from '@/store/useStore';
 import { useAddTransaction, useTransactions } from '@/hooks/useSupabaseData';
