@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowUpRight, Wallet, Settings as SettingsIcon, Calendar as CalendarIcon, X } from 'lucide-react';
 import { getActiveTransactions, ALL_CATEGORIES } from '@/store/useStore';
@@ -48,8 +48,16 @@ const Dashboard = () => {
   const settings = useStore(s => s.settings);
   const monthStart = startOfMonth(new Date());
   const monthEnd = endOfMonth(new Date());
-  const [fromDate, setFromDate] = useState<Date>(monthStart);
-  const [toDate, setToDate] = useState<Date>(monthEnd);
+  const [fromDate, setFromDate] = useState<Date>(() => {
+    const s = typeof window !== 'undefined' ? localStorage.getItem('dashboard:fromDate') : null;
+    return s ? new Date(s) : monthStart;
+  });
+  const [toDate, setToDate] = useState<Date>(() => {
+    const s = typeof window !== 'undefined' ? localStorage.getItem('dashboard:toDate') : null;
+    return s ? new Date(s) : monthEnd;
+  });
+  useEffect(() => { localStorage.setItem('dashboard:fromDate', format(fromDate, 'yyyy-MM-dd')); }, [fromDate]);
+  useEffect(() => { localStorage.setItem('dashboard:toDate', format(toDate, 'yyyy-MM-dd')); }, [toDate]);
   const isCustom = !isSameDay(fromDate, monthStart) || !isSameDay(toDate, monthEnd);
   const fromStr = format(fromDate, 'yyyy-MM-dd');
   const toStr = format(toDate, 'yyyy-MM-dd');
@@ -70,7 +78,12 @@ const Dashboard = () => {
   const txnCount = rangeTxns.length;
   const categoryChartKey = useMemo(() => chartData.map(({ name, value }) => `${name}:${value}`).join('|'), [chartData]);
 
-  const resetRange = () => { setFromDate(monthStart); setToDate(monthEnd); };
+  const resetRange = () => {
+    setFromDate(monthStart);
+    setToDate(monthEnd);
+    localStorage.removeItem('dashboard:fromDate');
+    localStorage.removeItem('dashboard:toDate');
+  };
 
   const [showBudgetEditor, setShowBudgetEditor] = useState(false);
 
