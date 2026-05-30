@@ -1,13 +1,20 @@
 import { useMemo } from 'react';
 import { useTransactions, useBudget } from '@/hooks/useSupabaseData';
-import { getTotalSpend } from '@/store/useStore';
-import { getCurrentMonth } from '@/lib/dateUtils';
+import { getActiveTransactions } from '@/store/useStore';
 
-export const BudgetBar = () => {
+interface BudgetBarProps {
+  from: string;
+  to: string;
+  label?: string;
+}
+
+export const BudgetBar = ({ from, to, label = 'Monthly Budget' }: BudgetBarProps) => {
   const { data: transactions = [] } = useTransactions();
   const { data: budget = { overall: 0, categories: {} } } = useBudget();
-  const currentMonth = getCurrentMonth();
-  const totalSpend = useMemo(() => getTotalSpend(transactions, currentMonth), [transactions, currentMonth]);
+  const totalSpend = useMemo(
+    () => getActiveTransactions(transactions).filter(t => t.date >= from && t.date <= to).reduce((s, t) => s + t.userShare, 0),
+    [transactions, from, to]
+  );
   const percentage = budget.overall > 0 ? Math.min((totalSpend / budget.overall) * 100, 100) : 0;
   const remaining = budget.overall - totalSpend;
 
@@ -16,7 +23,7 @@ export const BudgetBar = () => {
   return (
     <div className="glass-card p-4">
       <div className="flex justify-between items-center mb-2">
-        <span className="text-sm font-medium text-muted-foreground">Monthly Budget</span>
+        <span className="text-sm font-medium text-muted-foreground">{label}</span>
         <span className="text-sm font-bold text-foreground">₹{totalSpend.toLocaleString('en-IN')} / ₹{budget.overall.toLocaleString('en-IN')}</span>
       </div>
       <div className="h-2.5 bg-secondary rounded-full overflow-hidden">

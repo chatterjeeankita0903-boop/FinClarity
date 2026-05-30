@@ -1,9 +1,13 @@
 import { useState, useMemo } from 'react';
-import { Search, X, ArrowUpDown } from 'lucide-react';
+import { Search, X, ArrowUpDown, Calendar as CalendarIcon } from 'lucide-react';
 import { Category, PaymentMode } from '@/store/useStore';
 import { useTransactions } from '@/hooks/useSupabaseData';
 import { TransactionCard } from '@/components/TransactionCard';
 import { getRecentMonths, getShortMonthLabel, getCurrentMonth } from '@/lib/dateUtils';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 const CATEGORIES: Category[] = ['Food', 'Transport', 'Shopping', 'Bills', 'Rent', 'Entertainment', 'Health', 'SIP', 'Travel', 'Education', 'Other'];
 const PAYMENT_MODES: PaymentMode[] = ['UPI', 'Credit Card', 'Debit Card', 'Cash', 'Net Banking'];
@@ -20,13 +24,20 @@ const Transactions = () => {
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth());
   const [showIgnored, setShowIgnored] = useState(false);
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
+  const [fromDate, setFromDate] = useState<Date | undefined>(undefined);
+  const [toDate, setToDate] = useState<Date | undefined>(undefined);
+  const fromStr = fromDate ? format(fromDate, 'yyyy-MM-dd') : '';
+  const toStr = toDate ? format(toDate, 'yyyy-MM-dd') : '';
 
   const filtered = useMemo(() => {
     let result = transactions.filter(t => {
       if (!showIgnored && t.isIgnored) return false;
       if (selectedCategory && t.category !== selectedCategory) return false;
       if (selectedMode && t.paymentMode !== selectedMode) return false;
-      if (selectedMonth && !t.date.startsWith(selectedMonth)) return false;
+      if (fromStr || toStr) {
+        if (fromStr && t.date < fromStr) return false;
+        if (toStr && t.date > toStr) return false;
+      } else if (selectedMonth && !t.date.startsWith(selectedMonth)) return false;
       if (search && !t.merchant.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
     });
@@ -35,10 +46,11 @@ const Transactions = () => {
       return sortOrder === 'newest' ? -cmp : cmp;
     });
     return result;
-  }, [transactions, search, selectedMode, selectedCategory, selectedMonth, showIgnored, sortOrder]);
+  }, [transactions, search, selectedMode, selectedCategory, selectedMonth, showIgnored, sortOrder, fromStr, toStr]);
 
   const totalFiltered = useMemo(() => filtered.reduce((s, t) => s + t.userShare, 0), [filtered]);
-  const hasActiveFilters = !!(selectedMode || selectedCategory || showIgnored);
+  const hasActiveFilters = !!(selectedMode || selectedCategory || showIgnored || fromStr || toStr);
+  const hasDateRange = !!(fromStr || toStr);
 
   if (isLoading) {
     return (
@@ -102,9 +114,40 @@ const Transactions = () => {
       <div className="flex gap-2 overflow-x-auto pb-3 mb-3 scrollbar-hide">
         {monthOptions.map(m => (
           <button key={m.key} onClick={() => setSelectedMonth(selectedMonth === m.key ? '' : m.key)}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border transition-colors ${selectedMonth === m.key ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-secondary text-muted-foreground'}`}
+            disabled={hasDateRange}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border transition-colors ${selectedMonth === m.key && !hasDateRange ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-secondary text-muted-foreground'} ${hasDateRange ? 'opacity-50' : ''}`}
           >{m.label}</button>
         ))}
+      </div>
+
+      <div className="flex gap-2 flex-wrap mb-3">
+        <Popover>
+          <PopoverTrigger asChild>
+            <button className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border ${fromStr ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-secondary text-muted-foreground'}`}>
+              <CalendarIcon className="w-3 h-3" />
+              {fromStr ? `From ${format(fromDate!, 'd MMM yyyy')}` : 'Start date'}
+            </button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-auto p-0">
+            <Calendar mode="single" selected={fromDate} onSelect={setFromDate} initialFocus className={cn('p-3 pointer-events-auto')} />
+          </PopoverContent>
+        </Popover>
+        <Popover>
+          <PopoverTrigger asChild>
+            <button className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border ${toStr ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-secondary text-muted-foreground'}`}>
+              <CalendarIcon className="w-3 h-3" />
+              {toStr ? `To ${format(toDate!, 'd MMM yyyy')}` : 'End date'}
+            </button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-auto p-0">
+            <Calendar mode="single" selected={toDate} onSelect={setToDate} className={cn('p-3 pointer-events-auto')} />
+          </PopoverContent>
+        </Popover>
+        {hasDateRange && (
+          <button onClick={() => { setFromDate(undefined); setToDate(undefined); }} className="flex items-center gap-1 text-[11px] text-destructive">
+            <X className="w-3 h-3" /> Clear dates
+          </button>
+        )}
       </div>
 
       <div className="flex items-center justify-between mb-3">
@@ -113,7 +156,7 @@ const Transactions = () => {
           Show ignored
         </label>
         {hasActiveFilters && (
-          <button onClick={() => { setSelectedMode(''); setSelectedCategory(''); setShowIgnored(false); }} className="text-xs text-destructive flex items-center gap-1">
+          <button onClick={() => { setSelectedMode(''); setSelectedCategory(''); setShowIgnored(false); setFromDate(undefined); setToDate(undefined); }} className="text-xs text-destructive flex items-center gap-1">
             <X className="w-3 h-3" /> Clear filters
           </button>
         )}

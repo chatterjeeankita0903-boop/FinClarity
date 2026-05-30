@@ -1,15 +1,19 @@
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowUpRight, Wallet, Settings as SettingsIcon } from 'lucide-react';
-import { getTotalSpend, getCategoryBreakdown, getActiveTransactions, Category, ALL_CATEGORIES } from '@/store/useStore';
+import { ArrowUpRight, Wallet, Settings as SettingsIcon, Calendar as CalendarIcon, X } from 'lucide-react';
+import { getActiveTransactions, ALL_CATEGORIES } from '@/store/useStore';
 import { useTransactions, useBudget } from '@/hooks/useSupabaseData';
 import { useStore } from '@/store/useStore';
 import { BudgetBar } from '@/components/BudgetBar';
 import { NotificationBell } from '@/components/NotificationBell';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { useNavigate } from 'react-router-dom';
-import { getCurrentMonth, getCurrentMonthLabel } from '@/lib/dateUtils';
+import { getCurrentMonthLabel } from '@/lib/dateUtils';
 import { BudgetEditorSheet } from '@/components/BudgetEditorSheet';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { format, startOfMonth, endOfMonth, isSameDay } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 const COLORS = ['#22c55e', '#f97316', '#3b82f6', '#ec4899', '#a855f7', '#eab308', '#14b8a6', '#f43f5e', '#6366f1', '#06b6d4', '#64748b'];
 
@@ -42,14 +46,31 @@ const Dashboard = () => {
   const { data: transactions = [], isLoading: txnLoading } = useTransactions();
   const { data: budget = { overall: 0, categories: {} } } = useBudget();
   const settings = useStore(s => s.settings);
-  const currentMonth = getCurrentMonth();
-  const totalSpend = useMemo(() => getTotalSpend(transactions, currentMonth), [transactions, currentMonth]);
-  const totalSpendAllTime = useMemo(() => getTotalSpend(transactions), [transactions]);
-  const categoryData = useMemo(() => getCategoryBreakdown(transactions, currentMonth), [transactions, currentMonth]);
+  const monthStart = startOfMonth(new Date());
+  const monthEnd = endOfMonth(new Date());
+  const [fromDate, setFromDate] = useState<Date>(monthStart);
+  const [toDate, setToDate] = useState<Date>(monthEnd);
+  const isCustom = !isSameDay(fromDate, monthStart) || !isSameDay(toDate, monthEnd);
+  const fromStr = format(fromDate, 'yyyy-MM-dd');
+  const toStr = format(toDate, 'yyyy-MM-dd');
+
+  const activeTxns = useMemo(() => getActiveTransactions(transactions), [transactions]);
+  const rangeTxns = useMemo(
+    () => activeTxns.filter(t => t.date >= fromStr && t.date <= toStr),
+    [activeTxns, fromStr, toStr]
+  );
+  const totalSpend = useMemo(() => rangeTxns.reduce((s, t) => s + t.userShare, 0), [rangeTxns]);
+  const totalSpendAllTime = useMemo(() => activeTxns.reduce((s, t) => s + t.userShare, 0), [activeTxns]);
+  const categoryData = useMemo(() => {
+    const map: Record<string, number> = {};
+    rangeTxns.forEach(t => { map[t.category] = (map[t.category] || 0) + t.userShare; });
+    return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+  }, [rangeTxns]);
   const chartData = useMemo(() => categoryData.filter((item) => item.value > 0), [categoryData]);
-  const txns = useMemo(() => getActiveTransactions(transactions), [transactions]);
-  const txnCount = useMemo(() => txns.filter(t => t.date.startsWith(currentMonth)).length, [txns, currentMonth]);
+  const txnCount = rangeTxns.length;
   const categoryChartKey = useMemo(() => chartData.map(({ name, value }) => `${name}:${value}`).join('|'), [chartData]);
+
+  const resetRange = () => { setFromDate(monthStart); setToDate(monthEnd); };
 
   const [showBudgetEditor, setShowBudgetEditor] = useState(false);
 
@@ -94,9 +115,37 @@ const Dashboard = () => {
         </div>
       </div>
 
+      <div className="flex items-center gap-2 flex-wrap">
+        <Popover>
+          <PopoverTrigger asChild>
+            <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border border-border bg-secondary text-foreground">
+              <CalendarIcon className="w-3 h-3" />
+              {format(fromDate, 'd MMM')} – {format(toDate, 'd MMM yyyy')}
+            </button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-auto p-0">
+            <div className="flex flex-col sm:flex-row">
+              <div>
+                <p className="px-3 pt-3 text-[10px] font-semibold text-muted-foreground">From</p>
+                <Calendar mode="single" selected={fromDate} onSelect={(d) => d && setFromDate(d)} initialFocus className={cn('p-3 pointer-events-auto')} />
+              </div>
+              <div>
+                <p className="px-3 pt-3 text-[10px] font-semibold text-muted-foreground">To</p>
+                <Calendar mode="single" selected={toDate} onSelect={(d) => d && setToDate(d)} className={cn('p-3 pointer-events-auto')} />
+              </div>
+            </div>
+          </PopoverContent>
+        </Popover>
+        {isCustom && (
+          <button onClick={resetRange} className="flex items-center gap-1 text-[11px] text-destructive">
+            <X className="w-3 h-3" /> Reset
+          </button>
+        )}
+      </div>
+
       <div className="grid grid-cols-2 gap-3">
         <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="glass-card p-3 glow">
-          <p className="text-[10px] text-muted-foreground mb-0.5">This Month</p>
+          <p className="text-[10px] text-muted-foreground mb-0.5">{isCustom ? 'Customized duration spend' : 'This Month'}</p>
           <h2 className="text-lg sm:text-xl font-extrabold text-gradient">{formatAmount(totalSpend)}</h2>
           <div className="flex items-center gap-1 text-primary text-[10px] font-medium mt-0.5">
             <ArrowUpRight className="w-3 h-3" />
@@ -111,7 +160,7 @@ const Dashboard = () => {
       </div>
 
       {budgetEnabled ? (
-        <BudgetBar />
+        <BudgetBar from={fromStr} to={toStr} label={isCustom ? 'Customized duration budget' : 'Monthly Budget'} />
       ) : (
         <div className="glass-card p-3 flex items-center justify-between gap-3">
           <p className="text-xs text-muted-foreground">No monthly budget set yet.</p>
