@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowUpRight, Wallet, Settings as SettingsIcon, Calendar as CalendarIcon, X } from 'lucide-react';
 import { getActiveTransactions, ALL_CATEGORIES } from '@/store/useStore';
