@@ -2,7 +2,7 @@
 
 > AI-powered personal finance app for expense tracking, budgeting, and actionable insights.
 
-**Suggested repository name:** `finclarity-finance-tracker`
+
 
 **Live App:** https://fin-clarity-smart.lovable.app
 **Built With:** Lovable · React · Supabase
@@ -40,11 +40,4 @@ npm run dev
 
 You'll also need a Supabase project connected (URL + anon key) for data persistence to work locally.
 
-## About the Creator
 
-Built by **Ankita Chatterjee**, Product Owner (Tech & AI) at Axis Bank's Digital Business & Transformations division.
-
-- Email: chatterjeeankita0903@gmail.com
-- LinkedIn: https://www.linkedin.com/in/ankita-chatterjee-81811a147
-- GitHub: https://github.com/chatterjeeankita0903-boop
-- Portfolio: https://ankita-chatterjee-portfolio.lovable.app
